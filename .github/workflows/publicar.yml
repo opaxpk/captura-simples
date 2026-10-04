@@ -55,8 +55,8 @@ jobs:
 
       - run: npm ci
 
-      - name: Gerar o .exe
-        run: npx electron-builder --win portable --x64 --publish never
+      - name: Gerar o instalador
+        run: npx electron-builder --win nsis --x64 --publish never
 
       - name: Preparar a atualização
         run: node scripts/preparar-atualizacao.js
@@ -67,7 +67,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${{ steps.versao.outputs.tag }}" \
-            dist/CapturaSimples.exe atualizacao/* \
+            dist/CapturaSimples-Setup.exe atualizacao/* \
             --title "Captura Simples ${{ steps.versao.outputs.tag }}" \
             --notes-file NOVIDADES.md \
             --target "$GITHUB_SHA"

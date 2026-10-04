@@ -1,7 +1,4 @@
-- Atraso do som: acerta o som com a imagem nas Definições ou com as teclas [ e ].
-- Corrigir cores: resolve pretos cinzentos e cores lavadas (tecla C), com brilho, contraste e saturação.
-- Aviso quando a placa está ligada mas não recebe imagem HDMI.
-- Modos de imagem: ajustar, esticar e píxeis nítidos para consolas antigas.
-- Janela: sempre por cima, abrir em ecrã inteiro, esconder a barra (tecla H) e lembra o tamanho e a posição.
-- Painel de definições e ajuda de atalhos (tecla ?).
-- As atualizações completas passam a instalar-se sozinhas pelo botão de atualizar.
+- Abre muito mais depressa: o programa passa a instalar-se (num clique, sem perguntas nem administrador) em vez de se descomprimir de cada vez que o abres.
+- Atalhos no ambiente de trabalho e no menu Iniciar.
+- A janela aparece logo e a imagem e o som ligam-se ao mesmo tempo.
+- As atualizações completas instalam-se em silêncio e voltam a abrir a app.

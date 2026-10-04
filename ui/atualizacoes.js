@@ -43,11 +43,11 @@ function mostrarResultado(r) {
   } else if (r.podeAuto) {
     const mb = r.tamanhoMB ? ` (${r.tamanhoMB} MB)` : '';
     mostrarPainelAtualizacao('disponivel', `Versão ${r.nova} disponível`,
-      `Esta versão traz o programa novo${mb}. Descarrega e reinicia sozinha, no mesmo sítio.`,
+      `Esta versão traz o programa novo${mb}. Descarrega, instala e volta a abrir sozinha.`,
       { notas: r.notas, acao: 'Atualizar agora', aoClicar: instalarCompleta });
   } else {
     mostrarPainelAtualizacao('disponivel', `Versão ${r.nova} disponível`,
-      'Esta versão precisa do programa novo. Descarrega o .exe na página da versão e substitui o que tens.',
+      'Esta versão precisa do programa novo. Descarrega o CapturaSimples-Setup.exe na página da versão e abre-o: instala-se sozinho.',
       { notas: r.notas, acao: 'Abrir página de download', aoClicar: () => { atualizador.abrirPagina(); fecharPainel(el.painelAtualizacao); } });
   }
 }

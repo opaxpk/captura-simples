@@ -4,9 +4,11 @@ Ver e ouvir em direto a imagem de uma placa de captura USB no Windows 11, com a 
 
 ## Descarregar
 
-Vai a **[Releases](../../releases/latest)** e descarrega o `CapturaSimples.exe`. Abre com duplo clique, sem instalação.
+Vai a **[Releases](../../releases/latest)**, descarrega o `CapturaSimples-Setup.exe` e abre-o. Instala-se sozinho em poucos segundos, sem perguntas nem administrador, e cria um atalho no ambiente de trabalho e no menu Iniciar. A partir daí abre logo.
 
 Depois disso não precisas de voltar aqui: o botão de atualizar (setas, ao lado do ecrã inteiro) instala as versões novas sozinho.
+
+Para desinstalar: Definições do Windows, Aplicações, Aplicações instaladas, Captura Simples.
 
 ## Atalhos
 
@@ -29,12 +31,12 @@ Depois disso não precisas de voltar aqui: o botão de atualizar (setas, ao lado
 4. Envia para o GitHub (commit + push).
 5. No GitHub, abre o separador **Actions**, escolhe **Publicar versão** e carrega em **Run workflow**.
 
-O GitHub testa a app e, se o teste passar, gera o `.exe` e a atualização em 5 a 8 minutos e cria a versão em Releases.
+O GitHub testa a app e, se o teste passar, gera o instalador e a atualização em 5 a 8 minutos e cria a versão em Releases.
 
 ### Atualização pequena ou completa?
 
 - **Pequena:** se só mudaste ficheiros da pasta `ui/`, quem tem o programa clica em **Atualizar** e recebe a versão nova em segundos, sem fechar a app.
-- **Completa:** se mudaste `main.js`, `preload.js`, o Electron ou outra dependência, aumenta também `"versaoBase"` no `package.json`. O botão descarrega o `.exe` novo, fecha a app, troca o ficheiro e volta a abrir.
+- **Completa:** se mudaste `main.js`, `preload.js`, o Electron ou outra dependência, aumenta também `"versaoBase"` no `package.json`. O botão descarrega o instalador novo, instala em silêncio e volta a abrir a app.
 
 ## Estrutura
 
@@ -62,4 +64,4 @@ npm start
 npm test
 ```
 
-Para gerar o `.exe` no teu PC: `npm run dist` (fica em `dist\`).
+Para gerar o instalador no teu PC: `npm run dist` (fica em `dist\CapturaSimples-Setup.exe`).

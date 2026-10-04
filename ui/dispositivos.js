@@ -120,8 +120,8 @@ async function iniciarTudo() {
   }
   escolherVideoInicial();
   escolherAudioInicial();
-  await ligarVideo();
-  await ligarAudio();
+  // Vídeo e som são dispositivos diferentes: abrem-se ao mesmo tempo
+  await Promise.all([ligarVideo(), ligarAudio()]);
 }
 
 // Placa ligada ou desligada: volta a ligar sozinho, mas só à placa guardada

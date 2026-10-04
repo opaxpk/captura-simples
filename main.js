@@ -26,14 +26,14 @@ let win = null;
 //  - o conteúdo (pasta ui/), que se atualiza descarregando só esses
 //    ficheiros (poucos KB) das versões publicadas no GitHub.
 // "versaoBase" no package.json diz que base cada versão precisa. Se mudar,
-// a atualização é completa: o .exe novo é descarregado e trocado sozinho.
+// a atualização é completa: o instalador novo é descarregado e corre em silêncio.
 // =====================================================================
 const VERSAO = pkg.version;
 const VERSAO_BASE = pkg.versaoBase;
 const REPOSITORIO = (pkg.atualizacoes && pkg.atualizacoes.repositorio) || '';
 const API_GITHUB = process.env.CAPTURA_API || 'https://api.github.com';
 const PASTA_UI = path.join(__dirname, 'ui');
-const EXE_PORTATIL = process.env.PORTABLE_EXECUTABLE_FILE || '';
+const PASTA_PROGRAMA = path.dirname(process.execPath);
 const NOME_SEGURO = /^[\w.-]+$/;
 
 let versaoConteudo = VERSAO;
@@ -105,12 +105,22 @@ async function obterJson(url) {
   return r.json();
 }
 
-function podeTrocarExe(manifesto, release) {
-  return process.platform === 'win32'
-    && !!EXE_PORTATIL
-    && !!manifesto.exe
-    && NOME_SEGURO.test(manifesto.exe.nome || '')
-    && (release.assets || []).some((a) => a.name === manifesto.exe.nome);
+// Instalado pelo instalador (tem o desinstalador ao lado do programa)
+function estaInstalado() {
+  if (process.platform !== 'win32' || !app.isPackaged) return false;
+  try {
+    return fs.readdirSync(PASTA_PROGRAMA).some((f) => /^Uninstall .*\.exe$/i.test(f));
+  } catch {
+    return false;
+  }
+}
+
+function podeInstalarSozinho(manifesto, release) {
+  const inst = manifesto.instalador;
+  return estaInstalado()
+    && !!inst
+    && NOME_SEGURO.test(inst.nome || '')
+    && (release.assets || []).some((a) => a.name === inst.nome);
 }
 
 async function verificarAtualizacao() {
@@ -140,8 +150,8 @@ async function verificarAtualizacao() {
   return {
     ...base,
     estado: 'completa',
-    podeAuto: podeTrocarExe(manifesto, release),
-    tamanhoMB: manifesto.exe && manifesto.exe.tamanho ? Math.round(manifesto.exe.tamanho / 1048576) : 0,
+    podeAuto: podeInstalarSozinho(manifesto, release),
+    tamanhoMB: manifesto.instalador && manifesto.instalador.tamanho ? Math.round(manifesto.instalador.tamanho / 1048576) : 0,
   };
 }
 
@@ -192,7 +202,7 @@ async function aplicarAtualizacao() {
   return { versao: manifesto.versao };
 }
 
-// ---------- Atualização completa: descarregar o .exe novo e trocar ----------
+// ---------- Atualização completa: descarregar o instalador novo e correr em silêncio ----------
 function enviarProgresso(p) {
   if (win && !win.isDestroyed()) win.webContents.send('atualizacao:progresso', Math.max(0, Math.min(1, p)));
 }
@@ -200,21 +210,11 @@ function enviarProgresso(p) {
 async function aplicarAtualizacaoCompleta() {
   if (!ultimaVerificacao) throw new Error('Procura atualizações primeiro.');
   const { release, manifesto } = ultimaVerificacao;
-  if (!podeTrocarExe(manifesto, release)) throw new Error('Esta cópia do programa não se pode atualizar sozinha.');
+  if (!podeInstalarSozinho(manifesto, release)) throw new Error('Esta cópia do programa não se pode atualizar sozinha.');
 
-  // A pasta onde está o .exe tem de deixar gravar
-  const pastaExe = path.dirname(EXE_PORTATIL);
-  const teste = path.join(pastaExe, `.captura-teste-${process.pid}`);
-  try {
-    fs.writeFileSync(teste, '');
-    fs.unlinkSync(teste);
-  } catch {
-    throw new Error('A pasta onde está o programa não deixa gravar. Move o CapturaSimples.exe para outra pasta (por exemplo Documentos) e tenta outra vez.');
-  }
-
-  const info = manifesto.exe;
+  const info = manifesto.instalador;
   const ativo = release.assets.find((a) => a.name === info.nome);
-  const novo = path.join(app.getPath('temp'), `CapturaSimples-${manifesto.versao}-${process.pid}.exe`);
+  const novo = path.join(app.getPath('temp'), `CapturaSimples-Setup-${manifesto.versao}-${process.pid}.exe`);
   const r = await net.fetch(ativo.browser_download_url, { headers: { 'User-Agent': 'CapturaSimples' } });
   if (!r.ok || !r.body) throw new Error(`Não foi possível descarregar o programa novo (erro ${r.status}).`);
 
@@ -237,7 +237,7 @@ async function aplicarAtualizacaoCompleta() {
         enviarProgresso(recebido / total);
       }
     }
-  } catch (e) {
+  } catch {
     ficheiro.destroy();
     fs.rmSync(novo, { force: true });
     throw new Error('A ligação caiu a meio do download. Tenta outra vez.');
@@ -249,28 +249,12 @@ async function aplicarAtualizacaoCompleta() {
     throw new Error('O programa novo chegou corrompido. Tenta outra vez.');
   }
   enviarProgresso(1);
-  trocarExecutavel(novo, EXE_PORTATIL);
-  return { versao: manifesto.versao };
-}
 
-// Depois de a app fechar, um pequeno script do PowerShell troca o ficheiro e volta a abrir.
-// Se a troca não for possível em 60 s, abre o programa antigo, que continua a funcionar.
-function trocarExecutavel(novo, alvo) {
-  const aspas = (s) => `'${String(s).replace(/'/g, "''")}'`;
-  const script = [
-    `$novo = ${aspas(novo)}`,
-    `$alvo = ${aspas(alvo)}`,
-    'for ($i = 0; $i -lt 120; $i++) {',
-    '  Start-Sleep -Milliseconds 500',
-    '  try { Move-Item -LiteralPath $novo -Destination $alvo -Force -ErrorAction Stop; break } catch {}',
-    '}',
-    'Start-Process -FilePath $alvo',
-  ].join('\n');
-  const codificado = Buffer.from(script, 'utf16le').toString('base64');
-  spawn('powershell.exe',
-    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-EncodedCommand', codificado],
-    { detached: true, stdio: 'ignore', windowsHide: true }).unref();
-  setTimeout(() => app.quit(), 800);
+  // O instalador fecha esta app se ainda estiver aberta, instala em silêncio (/S)
+  // e volta a abrir a app no fim (--force-run).
+  spawn(novo, ['--updated', '/S', '--force-run'], { detached: true, stdio: 'ignore' }).unref();
+  setTimeout(() => app.quit(), 500);
+  return { versao: manifesto.versao };
 }
 
 // =====================================================================
@@ -326,10 +310,9 @@ function createWindow() {
   });
 
   win.removeMenu();
-  win.once('ready-to-show', () => {
-    if (guardada && guardada.maximizada) win.maximize();
-    win.show();
-  });
+  // Mostrar logo a janela (preta) em vez de esperar pela página: parece instantâneo
+  if (guardada && guardada.maximizada) win.maximize();
+  win.show();
   win.webContents.on('did-fail-load', () => desistirDoConteudo('falhou a carregar'));
   // Links externos nunca abrem dentro da app
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));

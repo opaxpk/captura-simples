@@ -12,6 +12,8 @@ app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
 app.commandLine.appendSwitch('disable-gpu');
 app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'captura-teste-')));
 
+const inicio = Date.now();
+let paginaPronta = 0;
 const falhas = [];
 const errosConsola = [];
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -34,7 +36,15 @@ async function testar(win) {
   const js = (codigo) => win.webContents.executeJavaScript(codigo);
   const tecla = (key) => js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: ${JSON.stringify(key)} }))`);
 
-  await esperar(5000);
+  // Tempo até a imagem aparecer
+  let imagem = 0;
+  for (let i = 0; i < 200 && !imagem; i++) {
+    if (await js(`!!streamVideo && el.video.videoWidth > 0`)) imagem = Date.now() - inicio;
+    else await esperar(25);
+  }
+  console.log(`Arranque: página pronta em ${paginaPronta} ms, imagem em ${imagem} ms`);
+  verificar('A imagem aparece em menos de 5 s', imagem > 0 && imagem < 5000, `${imagem} ms`);
+  await esperar(4000);
 
   const v = await js(`({
     vivo: !!streamVideo && streamVideo.getVideoTracks()[0].readyState === 'live',
@@ -135,6 +145,7 @@ app.on('browser-window-created', (_e, win) => {
     if (e.level === 'error') errosConsola.push(e.message);
   });
   win.webContents.once('did-finish-load', async () => {
+    paginaPronta = Date.now() - inicio;
     try {
       await testar(win);
     } catch (e) {

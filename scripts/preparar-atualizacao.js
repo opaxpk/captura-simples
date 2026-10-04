@@ -1,7 +1,7 @@
 // Prepara os ficheiros de uma versão na pasta "atualizacao/":
 //  - todos os ficheiros da pasta ui (a atualização pequena);
 //  - atualizacao.json, com a versão, a base e a impressão digital (sha256) de cada ficheiro;
-//  - se já existir dist/CapturaSimples.exe, também a impressão digital do programa completo.
+//  - se já existir o instalador em dist/, também a impressão digital dele (atualização completa).
 // Corre no GitHub Actions ao publicar; também podes correr à mão: node scripts/preparar-atualizacao.js
 const fs = require('fs');
 const path = require('path');
@@ -30,11 +30,11 @@ if (!ficheiros['index.html']) throw new Error('Falta ui/index.html');
 
 const manifesto = { versao: pkg.version, versaoBase: pkg.versaoBase, ficheiros };
 
-const exe = path.join(raiz, 'dist', pkg.build.portable.artifactName);
-if (fs.existsSync(exe)) {
-  const dados = fs.readFileSync(exe);
-  manifesto.exe = { nome: path.basename(exe), tamanho: dados.length, sha256: sha256(dados) };
+const instalador = path.join(raiz, 'dist', pkg.build.nsis.artifactName);
+if (fs.existsSync(instalador)) {
+  const dados = fs.readFileSync(instalador);
+  manifesto.instalador = { nome: path.basename(instalador), tamanho: dados.length, sha256: sha256(dados) };
 }
 
 fs.writeFileSync(path.join(saida, 'atualizacao.json'), JSON.stringify(manifesto, null, 2));
-console.log(`Versão ${pkg.version} (base ${pkg.versaoBase}) preparada em atualizacao/ com ${Object.keys(ficheiros).length} ficheiros${manifesto.exe ? ' e o .exe' : ''}.`);
+console.log(`Versão ${pkg.version} (base ${pkg.versaoBase}) preparada em atualizacao/ com ${Object.keys(ficheiros).length} ficheiros${manifesto.instalador ? ' e o instalador' : ''}.`);
