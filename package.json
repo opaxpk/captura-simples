@@ -1,0 +1,51 @@
+{
+  "name": "captura-simples",
+  "productName": "Captura Simples",
+  "version": "1.1.0",
+  "versaoBase": 1,
+  "description": "Pré-visualização simples e de baixa latência para placas de captura USB",
+  "main": "main.js",
+  "author": "Hugo",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable --x64"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "pt.hugo.capturasimples",
+    "productName": "Captura Simples",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "renderer.js",
+      "styles.css",
+      "icon.png",
+      "package.json"
+    ],
+    "win": {
+      "icon": "icon.png",
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "portable": {
+      "artifactName": "CapturaSimples-${version}.exe"
+    }
+  },
+  "atualizacoes": {
+    "repositorio": "opaxpk/captura-simples"
+  }
+}

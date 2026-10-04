@@ -1,0 +1,3 @@
+- Novo design: luz de sinal com o formato real, botões para resolução e FPS, medidor de som.
+- Botão de atualizações: as versões pequenas instalam-se sem descarregar o programa todo.
+- Ecrã inteiro com consola flutuante e aviso de volume no ecrã.

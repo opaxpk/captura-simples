@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+  <title>Captura Simples</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header id="barra" role="toolbar" aria-label="Controlos">
+    <div class="grupo">
+      <label class="campo">
+        <span class="rotulo">Vídeo</span>
+        <select id="selVideo" aria-label="Fonte de vídeo"></select>
+      </label>
+      <label class="campo">
+        <span class="rotulo">Áudio</span>
+        <select id="selAudio" aria-label="Entrada de áudio"></select>
+      </label>
+    </div>
+
+    <div class="grupo">
+      <div class="segmentos" id="segRes" role="group" aria-label="Resolução">
+        <button type="button" data-valor="1920x1080" title="1920×1080">1080p</button>
+        <button type="button" data-valor="1280x720" title="1280×720">720p</button>
+        <button type="button" data-valor="854x480" title="854×480">480p</button>
+      </div>
+      <div class="segmentos" id="segFps" role="group" aria-label="Imagens por segundo">
+        <button type="button" data-valor="60">60 fps</button>
+        <button type="button" data-valor="30">30 fps</button>
+      </div>
+    </div>
+
+    <div class="grupo som">
+      <button type="button" id="btnMute" class="icone" aria-label="Silenciar" title="Silenciar (M)">
+        <svg class="som-ligado" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>
+        <svg class="som-desligado" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
+      </button>
+      <div class="volume">
+        <input type="range" id="volume" min="0" max="200" step="1" value="100" aria-label="Volume" title="Volume (setas cima/baixo)">
+        <div class="medidor" title="Nível do som que está a chegar da placa"><div id="nivel"></div></div>
+      </div>
+      <output id="volumeValor" for="volume">100%</output>
+    </div>
+
+    <div class="direita">
+      <div id="sinal" class="sinal" data-estado="sem">
+        <span class="luz" aria-hidden="true"></span>
+        <span id="sinalTexto">Sem sinal</span>
+        <span id="sinalExtra" class="extra"></span>
+      </div>
+      <button type="button" id="btnAtualizar" class="icone" aria-label="Procurar atualizações" title="Procurar atualizações" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 0 1-13.4 4.6M4.5 12a7.5 7.5 0 0 1 13.4-4.6"/><path d="M18.3 3.5v4.2h-4.2M5.7 20.5v-4.2h4.2"/></svg>
+      </button>
+      <button type="button" id="btnEcra" class="icone" aria-label="Ecrã inteiro" title="Ecrã inteiro (F11 ou duplo clique)">
+        <svg class="expandir" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
+        <svg class="encolher" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="palco">
+    <video id="video" autoplay playsinline muted disablepictureinpicture></video>
+
+    <section id="estado" data-modo="oculto" aria-live="polite">
+      <svg class="estado-icone" viewBox="0 0 48 48" aria-hidden="true">
+        <rect x="7" y="11" width="34" height="22" rx="3"/>
+        <path d="M18 39h12M24 33v6"/>
+        <path class="risco" d="M10 8l28 30"/>
+      </svg>
+      <h1 id="estadoTitulo"></h1>
+      <p id="estadoTexto"></p>
+      <button type="button" id="btnRetry">Tentar outra vez</button>
+    </section>
+
+    <div id="osd" aria-hidden="true"></div>
+  </main>
+
+  <div id="painelAtualizacao" role="dialog" aria-labelledby="atTitulo" data-modo="oculto">
+    <h2 id="atTitulo"></h2>
+    <p id="atTexto"></p>
+    <div id="atNotas"></div>
+    <div class="acoes">
+      <button type="button" id="atFechar" class="secundario">Fechar</button>
+      <button type="button" id="atAcao" class="primario"></button>
+    </div>
+    <p id="atVersao"></p>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
