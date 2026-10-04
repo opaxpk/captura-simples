@@ -2,6 +2,7 @@ name: Publicar versão
 
 # Corre quando carregas em "Run workflow" no separador Actions do GitHub,
 # ou quando envias uma tag tipo v1.2.0.
+# Primeiro testa a app; só publica se o teste passar.
 on:
   workflow_dispatch:
   push:
@@ -11,7 +12,21 @@ permissions:
   contents: write
 
 jobs:
+  testar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: sudo apt-get update && sudo apt-get install -y xvfb
+      - run: npm ci
+      - name: Testar a app
+        run: xvfb-run -a npm test
+
   publicar:
+    needs: testar
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,6 +39,8 @@ jobs:
       - name: Ler a versão do package.json
         id: versao
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           V=$(node -p "require('./package.json').version")
           echo "tag=v$V" >> "$GITHUB_OUTPUT"
@@ -35,15 +52,13 @@ jobs:
             echo "::error::A versão v$V já foi publicada. Aumenta o número em \"version\" no package.json."
             exit 1
           fi
-        env:
-          GH_TOKEN: ${{ github.token }}
 
       - run: npm ci
 
       - name: Gerar o .exe
         run: npx electron-builder --win portable --x64 --publish never
 
-      - name: Preparar a atualização pequena
+      - name: Preparar a atualização
         run: node scripts/preparar-atualizacao.js
 
       - name: Criar a versão no GitHub
@@ -52,7 +67,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${{ steps.versao.outputs.tag }}" \
-            dist/*.exe atualizacao/* \
+            dist/CapturaSimples.exe atualizacao/* \
             --title "Captura Simples ${{ steps.versao.outputs.tag }}" \
             --notes-file NOVIDADES.md \
             --target "$GITHUB_SHA"

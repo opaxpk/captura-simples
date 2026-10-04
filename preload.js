@@ -7,12 +7,17 @@ contextBridge.exposeInMainWorld('janela', {
   onFullscreenChange: (callback) => {
     ipcRenderer.on('fullscreen-changed', (_e, estado) => callback(estado));
   },
+  setSempreCima: (estado) => ipcRenderer.invoke('janela:sempreCima', estado),
 });
 
 contextBridge.exposeInMainWorld('atualizacao', {
   info: () => ipcRenderer.invoke('atualizacao:info'),
   verificar: () => ipcRenderer.invoke('atualizacao:verificar'),
   aplicar: () => ipcRenderer.invoke('atualizacao:aplicar'),
+  aplicarCompleta: () => ipcRenderer.invoke('atualizacao:aplicarCompleta'),
+  onProgresso: (callback) => {
+    ipcRenderer.on('atualizacao:progresso', (_e, p) => callback(p));
+  },
   abrirPagina: () => ipcRenderer.invoke('atualizacao:pagina'),
   pronto: () => ipcRenderer.send('atualizacao:pronto'),
 });

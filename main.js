@@ -1,7 +1,8 @@
-const { app, BrowserWindow, ipcMain, session, Menu, nativeTheme, net, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, session, Menu, nativeTheme, net, shell, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { spawn } = require('child_process');
 const pkg = require('./package.json');
 
 // O áudio arranca sem ser preciso clicar, e o Chromium não abranda a janela em segundo plano
@@ -22,17 +23,20 @@ let win = null;
 // ---------------------------------------------------------------------
 // O programa tem duas partes:
 //  - a base (Electron, main.js, preload.js), que só muda com um .exe novo;
-//  - o conteúdo (index.html, renderer.js, styles.css), que se atualiza
-//    descarregando só esses ficheiros (poucos KB) das versões no GitHub.
+//  - o conteúdo (pasta ui/), que se atualiza descarregando só esses
+//    ficheiros (poucos KB) das versões publicadas no GitHub.
 // "versaoBase" no package.json diz que base cada versão precisa. Se mudar,
-// a atualização é completa e o utilizador descarrega o .exe novo.
+// a atualização é completa: o .exe novo é descarregado e trocado sozinho.
 // =====================================================================
+const VERSAO = pkg.version;
 const VERSAO_BASE = pkg.versaoBase;
 const REPOSITORIO = (pkg.atualizacoes && pkg.atualizacoes.repositorio) || '';
 const API_GITHUB = process.env.CAPTURA_API || 'https://api.github.com';
-const FICHEIROS_CONTEUDO = ['index.html', 'renderer.js', 'styles.css'];
+const PASTA_UI = path.join(__dirname, 'ui');
+const EXE_PORTATIL = process.env.PORTABLE_EXECUTABLE_FILE || '';
+const NOME_SEGURO = /^[\w.-]+$/;
 
-let versaoConteudo = app.getVersion();
+let versaoConteudo = VERSAO;
 let aUsarConteudoDescarregado = false;
 let temporizadorPronto = null;
 let ultimaVerificacao = null;
@@ -55,9 +59,11 @@ function conteudoInstalado() {
   try {
     const info = JSON.parse(fs.readFileSync(ficheiroAtual(), 'utf8'));
     if (info.versaoBase !== VERSAO_BASE) return null;
-    if (compararVersoes(info.versao, app.getVersion()) <= 0) return null;
+    if (compararVersoes(info.versao, VERSAO) <= 0) return null;
     const pasta = path.join(pastaConteudo(), info.versao);
-    if (!FICHEIROS_CONTEUDO.every((f) => fs.existsSync(path.join(pasta, f)))) return null;
+    const lista = Array.isArray(info.ficheiros) ? info.ficheiros : ['index.html'];
+    if (!lista.includes('index.html')) return null;
+    if (!lista.every((f) => NOME_SEGURO.test(f) && fs.existsSync(path.join(pasta, f)))) return null;
     return { versao: info.versao, pasta };
   } catch {
     return null;
@@ -76,9 +82,9 @@ function carregarConteudo() {
     // Rede de segurança: se a versão descarregada não arrancar em 10 s, volta à que vem no .exe
     temporizadorPronto = setTimeout(() => desistirDoConteudo('não arrancou'), 10000);
   } else {
-    versaoConteudo = app.getVersion();
+    versaoConteudo = VERSAO;
     aUsarConteudoDescarregado = false;
-    win.loadFile(path.join(__dirname, 'index.html'));
+    win.loadFile(path.join(PASTA_UI, 'index.html'));
   }
 }
 
@@ -97,6 +103,14 @@ async function obterJson(url) {
   if (r.status === 403) throw new Error('O GitHub limitou os pedidos. Tenta outra vez daqui a uma hora.');
   if (!r.ok) throw new Error(`O GitHub respondeu com o erro ${r.status}.`);
   return r.json();
+}
+
+function podeTrocarExe(manifesto, release) {
+  return process.platform === 'win32'
+    && !!EXE_PORTATIL
+    && !!manifesto.exe
+    && NOME_SEGURO.test(manifesto.exe.nome || '')
+    && (release.assets || []).some((a) => a.name === manifesto.exe.nome);
 }
 
 async function verificarAtualizacao() {
@@ -122,14 +136,24 @@ async function verificarAtualizacao() {
     pagina: release.html_url,
   };
   if (compararVersoes(manifesto.versao, versaoConteudo) <= 0) return { ...base, estado: 'atualizado' };
-  return { ...base, estado: manifesto.versaoBase === VERSAO_BASE ? 'conteudo' : 'completa' };
+  if (manifesto.versaoBase === VERSAO_BASE) return { ...base, estado: 'conteudo' };
+  return {
+    ...base,
+    estado: 'completa',
+    podeAuto: podeTrocarExe(manifesto, release),
+    tamanhoMB: manifesto.exe && manifesto.exe.tamanho ? Math.round(manifesto.exe.tamanho / 1048576) : 0,
+  };
 }
 
+// ---------- Atualização pequena: só a pasta ui ----------
 async function aplicarAtualizacao() {
   if (!ultimaVerificacao) throw new Error('Procura atualizações primeiro.');
   const { release, manifesto } = ultimaVerificacao;
   if (manifesto.versaoBase !== VERSAO_BASE) throw new Error('Esta versão precisa do programa novo (.exe).');
   if (!/^\d+\.\d+\.\d+$/.test(manifesto.versao)) throw new Error('Número de versão inválido.');
+
+  const nomes = Object.keys(manifesto.ficheiros || {});
+  if (!nomes.includes('index.html')) throw new Error('A atualização está incompleta.');
 
   const destino = path.join(pastaConteudo(), manifesto.versao);
   const temporaria = `${destino}.parcial`;
@@ -137,19 +161,16 @@ async function aplicarAtualizacao() {
   fs.mkdirSync(temporaria, { recursive: true });
 
   try {
-    for (const [nome, hashEsperado] of Object.entries(manifesto.ficheiros || {})) {
-      if (!/^[\w.-]+$/.test(nome)) throw new Error(`Nome de ficheiro inválido: ${nome}`);
+    for (const nome of nomes) {
+      if (!NOME_SEGURO.test(nome)) throw new Error(`Nome de ficheiro inválido: ${nome}`);
       const ativo = release.assets.find((a) => a.name === nome);
       if (!ativo) throw new Error(`Falta o ficheiro ${nome} na versão publicada.`);
       const r = await net.fetch(ativo.browser_download_url, { headers: { 'User-Agent': 'CapturaSimples' } });
       if (!r.ok) throw new Error(`Não foi possível descarregar ${nome} (erro ${r.status}).`);
       const dados = Buffer.from(await r.arrayBuffer());
       const hash = crypto.createHash('sha256').update(dados).digest('hex');
-      if (hash !== hashEsperado) throw new Error(`O ficheiro ${nome} chegou corrompido. Tenta outra vez.`);
+      if (hash !== manifesto.ficheiros[nome]) throw new Error(`O ficheiro ${nome} chegou corrompido. Tenta outra vez.`);
       fs.writeFileSync(path.join(temporaria, nome), dados);
-    }
-    if (!FICHEIROS_CONTEUDO.every((f) => fs.existsSync(path.join(temporaria, f)))) {
-      throw new Error('A atualização está incompleta.');
     }
   } catch (e) {
     fs.rmSync(temporaria, { recursive: true, force: true });
@@ -158,7 +179,7 @@ async function aplicarAtualizacao() {
 
   fs.rmSync(destino, { recursive: true, force: true });
   fs.renameSync(temporaria, destino);
-  fs.writeFileSync(ficheiroAtual(), JSON.stringify({ versao: manifesto.versao, versaoBase: VERSAO_BASE }));
+  fs.writeFileSync(ficheiroAtual(), JSON.stringify({ versao: manifesto.versao, versaoBase: VERSAO_BASE, ficheiros: nomes }));
 
   // Apagar versões antigas
   for (const nome of fs.readdirSync(pastaConteudo())) {
@@ -171,13 +192,123 @@ async function aplicarAtualizacao() {
   return { versao: manifesto.versao };
 }
 
+// ---------- Atualização completa: descarregar o .exe novo e trocar ----------
+function enviarProgresso(p) {
+  if (win && !win.isDestroyed()) win.webContents.send('atualizacao:progresso', Math.max(0, Math.min(1, p)));
+}
+
+async function aplicarAtualizacaoCompleta() {
+  if (!ultimaVerificacao) throw new Error('Procura atualizações primeiro.');
+  const { release, manifesto } = ultimaVerificacao;
+  if (!podeTrocarExe(manifesto, release)) throw new Error('Esta cópia do programa não se pode atualizar sozinha.');
+
+  // A pasta onde está o .exe tem de deixar gravar
+  const pastaExe = path.dirname(EXE_PORTATIL);
+  const teste = path.join(pastaExe, `.captura-teste-${process.pid}`);
+  try {
+    fs.writeFileSync(teste, '');
+    fs.unlinkSync(teste);
+  } catch {
+    throw new Error('A pasta onde está o programa não deixa gravar. Move o CapturaSimples.exe para outra pasta (por exemplo Documentos) e tenta outra vez.');
+  }
+
+  const info = manifesto.exe;
+  const ativo = release.assets.find((a) => a.name === info.nome);
+  const novo = path.join(app.getPath('temp'), `CapturaSimples-${manifesto.versao}-${process.pid}.exe`);
+  const r = await net.fetch(ativo.browser_download_url, { headers: { 'User-Agent': 'CapturaSimples' } });
+  if (!r.ok || !r.body) throw new Error(`Não foi possível descarregar o programa novo (erro ${r.status}).`);
+
+  const total = info.tamanho || ativo.size || 0;
+  const hash = crypto.createHash('sha256');
+  const ficheiro = fs.createWriteStream(novo);
+  let recebido = 0;
+  let ultimoEnvio = 0;
+  try {
+    const leitor = r.body.getReader();
+    for (;;) {
+      const { done, value } = await leitor.read();
+      if (done) break;
+      hash.update(value);
+      recebido += value.length;
+      if (!ficheiro.write(value)) await new Promise((res) => ficheiro.once('drain', res));
+      const agora = Date.now();
+      if (total && agora - ultimoEnvio > 150) {
+        ultimoEnvio = agora;
+        enviarProgresso(recebido / total);
+      }
+    }
+  } catch (e) {
+    ficheiro.destroy();
+    fs.rmSync(novo, { force: true });
+    throw new Error('A ligação caiu a meio do download. Tenta outra vez.');
+  }
+  await new Promise((res) => ficheiro.end(res));
+
+  if (hash.digest('hex') !== info.sha256) {
+    fs.rmSync(novo, { force: true });
+    throw new Error('O programa novo chegou corrompido. Tenta outra vez.');
+  }
+  enviarProgresso(1);
+  trocarExecutavel(novo, EXE_PORTATIL);
+  return { versao: manifesto.versao };
+}
+
+// Depois de a app fechar, um pequeno script do PowerShell troca o ficheiro e volta a abrir.
+// Se a troca não for possível em 60 s, abre o programa antigo, que continua a funcionar.
+function trocarExecutavel(novo, alvo) {
+  const aspas = (s) => `'${String(s).replace(/'/g, "''")}'`;
+  const script = [
+    `$novo = ${aspas(novo)}`,
+    `$alvo = ${aspas(alvo)}`,
+    'for ($i = 0; $i -lt 120; $i++) {',
+    '  Start-Sleep -Milliseconds 500',
+    '  try { Move-Item -LiteralPath $novo -Destination $alvo -Force -ErrorAction Stop; break } catch {}',
+    '}',
+    'Start-Process -FilePath $alvo',
+  ].join('\n');
+  const codificado = Buffer.from(script, 'utf16le').toString('base64');
+  spawn('powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-EncodedCommand', codificado],
+    { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+  setTimeout(() => app.quit(), 800);
+}
+
 // =====================================================================
-// Janela
+// Janela: lembrar tamanho e posição
 // =====================================================================
+const ficheiroJanela = () => path.join(app.getPath('userData'), 'janela.json');
+
+function lerJanela() {
+  try {
+    const b = JSON.parse(fs.readFileSync(ficheiroJanela(), 'utf8'));
+    if (!(b.width >= 640 && b.height >= 400)) return null;
+    const area = screen.getDisplayMatching(b).workArea;
+    const visivel = b.x + b.width > area.x + 100 && b.x < area.x + area.width - 100
+      && b.y >= area.y - 20 && b.y < area.y + area.height - 100;
+    return visivel ? b : { width: b.width, height: b.height, maximizada: b.maximizada };
+  } catch {
+    return null;
+  }
+}
+
+let temporizadorJanela = null;
+function guardarJanela() {
+  if (!win || win.isDestroyed()) return;
+  const b = { ...win.getNormalBounds(), maximizada: win.isMaximized() };
+  try { fs.writeFileSync(ficheiroJanela(), JSON.stringify(b)); } catch { /* */ }
+}
+function guardarJanelaDepois() {
+  clearTimeout(temporizadorJanela);
+  temporizadorJanela = setTimeout(guardarJanela, 500);
+}
+
 function createWindow() {
+  const guardada = lerJanela();
   win = new BrowserWindow({
     width: 1280,
     height: 760,
+    ...(guardada ? { width: guardada.width, height: guardada.height } : {}),
+    ...(guardada && Number.isFinite(guardada.x) ? { x: guardada.x, y: guardada.y } : {}),
     minWidth: 640,
     minHeight: 400,
     backgroundColor: '#000000',
@@ -195,9 +326,12 @@ function createWindow() {
   });
 
   win.removeMenu();
-  win.once('ready-to-show', () => win.show());
+  win.once('ready-to-show', () => {
+    if (guardada && guardada.maximizada) win.maximize();
+    win.show();
+  });
   win.webContents.on('did-fail-load', () => desistirDoConteudo('falhou a carregar'));
-  // Links externos abrem no browser, nunca dentro da app
+  // Links externos nunca abrem dentro da app
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (e) => e.preventDefault());
 
@@ -208,6 +342,9 @@ function createWindow() {
   };
   win.on('enter-full-screen', () => avisar(true));
   win.on('leave-full-screen', () => avisar(false));
+  win.on('resize', guardarJanelaDepois);
+  win.on('move', guardarJanelaDepois);
+  win.on('close', guardarJanela);
   win.on('closed', () => { win = null; });
 }
 
@@ -228,7 +365,7 @@ app.whenReady().then(() => {
   ses.setPermissionRequestHandler((_wc, permission, callback) => callback(permitido(permission)));
   ses.setPermissionCheckHandler((_wc, permission) => permitido(permission));
 
-  // Ecrã inteiro controlado por IPC
+  // Janela
   ipcMain.handle('fullscreen:set', (_e, estado) => {
     if (!win) return false;
     win.setFullScreen(!!estado);
@@ -241,11 +378,16 @@ app.whenReady().then(() => {
     return novo;
   });
   ipcMain.handle('fullscreen:get', () => (win ? win.isFullScreen() : false));
+  ipcMain.handle('janela:sempreCima', (_e, estado) => {
+    if (win) win.setAlwaysOnTop(!!estado, 'floating');
+    return !!estado;
+  });
 
   // Atualizações
   ipcMain.handle('atualizacao:info', () => ({ versao: versaoConteudo, versaoBase: VERSAO_BASE }));
   ipcMain.handle('atualizacao:verificar', () => verificarAtualizacao());
   ipcMain.handle('atualizacao:aplicar', () => aplicarAtualizacao());
+  ipcMain.handle('atualizacao:aplicarCompleta', () => aplicarAtualizacaoCompleta());
   ipcMain.handle('atualizacao:pagina', () => {
     const url = ultimaVerificacao && ultimaVerificacao.release.html_url;
     if (url && url.startsWith('https://github.com/')) shell.openExternal(url);

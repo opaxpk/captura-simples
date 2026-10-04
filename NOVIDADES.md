@@ -1,3 +1,7 @@
-- Novo design: luz de sinal com o formato real, botões para resolução e FPS, medidor de som.
-- Botão de atualizações: as versões pequenas instalam-se sem descarregar o programa todo.
-- Ecrã inteiro com consola flutuante e aviso de volume no ecrã.
+- Atraso do som: acerta o som com a imagem nas Definições ou com as teclas [ e ].
+- Corrigir cores: resolve pretos cinzentos e cores lavadas (tecla C), com brilho, contraste e saturação.
+- Aviso quando a placa está ligada mas não recebe imagem HDMI.
+- Modos de imagem: ajustar, esticar e píxeis nítidos para consolas antigas.
+- Janela: sempre por cima, abrir em ecrã inteiro, esconder a barra (tecla H) e lembra o tamanho e a posição.
+- Painel de definições e ajuda de atalhos (tecla ?).
+- As atualizações completas passam a instalar-se sozinhas pelo botão de atualizar.
