@@ -137,6 +137,21 @@ async function testar(win) {
   verificar('Luz de sinal diz "Sem imagem"', await js('el.sinalTexto.textContent') === 'Sem imagem');
   await capturar(win, '4-sem-imagem');
 
+  // Janela estreita: a barra encolhe e os botões da direita continuam visíveis
+  await js(`el.selVideo.options[0].text = 'USB3 Video (345f:2131)'; ajustarBarra();`);
+  for (const largura of [1137, 800, 640]) {
+    win.setContentSize(largura, 600);
+    await esperar(400);
+    const r = await js(`({ cabe: el.barra.scrollWidth <= el.barra.clientWidth + 1,
+      fim: el.btnEcra.getBoundingClientRect().right, largura: innerWidth, nivel: nivelCompacto })`);
+    verificar(`Barra cabe numa janela de ${largura}px`, r.cabe && r.fim <= r.largura, `nível ${r.nivel}`);
+  }
+  win.setContentSize(1400, 760);
+  await esperar(400);
+  const volta = await js(`({ nivel: nivelCompacto, formato: el.segRes.parentElement === el.grupoFormato, volume: el.caixaVolume.parentElement === el.grupoSom })`);
+  verificar('Ao alargar, tudo volta para a barra', volta.formato && volta.volume && volta.nivel <= 1, `nível ${volta.nivel}`);
+  win.setContentSize(1280, 760);
+
   verificar('Imagem estável ligada por defeito', app.commandLine.hasSwitch('disable-direct-composition-video-overlays'));
   const barra = await js(`(() => { document.body.classList.add('flutuante','inativo');
     const c = getComputedStyle(el.barra); const r = { filtro: c.backdropFilter, vis: c.visibility };

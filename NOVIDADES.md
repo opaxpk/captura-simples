@@ -1,3 +1,2 @@
-- Corrige uma piscadela (às vezes verde) por cima da imagem quando a barra desaparece durante o jogo.
-- Nova opção "Imagem estável" nas Definições, ligada por defeito.
-- A barra flutuante deixa de desfocar a imagem por trás, o que também alivia a placa gráfica.
+- A barra de cima adapta-se ao tamanho da janela: deixa de cortar a luz de sinal e os botões da direita.
+- Em janelas estreitas, a resolução, os FPS e o volume passam para o painel de Definições.

@@ -80,10 +80,12 @@ function contarFrame() {
 }
 
 function definirSinal(estado, texto, extra = '', dica = '') {
+  const mudouLargura = el.sinalTexto.textContent !== texto || el.sinalExtra.textContent !== extra;
   el.sinal.dataset.estado = estado;
   el.sinalTexto.textContent = texto;
   el.sinalExtra.textContent = extra;
   el.sinal.title = dica;
+  if (mudouLargura) ajustarBarraDepois();
 }
 
 function atualizarIndicador() {

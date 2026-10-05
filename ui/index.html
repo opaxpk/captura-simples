@@ -19,7 +19,7 @@
       </label>
     </div>
 
-    <div class="grupo">
+    <div class="grupo" id="grupoFormato">
       <div class="segmentos" id="segRes" role="group" aria-label="Resolução">
         <button type="button" data-valor="1920x1080" title="1920×1080">1080p</button>
         <button type="button" data-valor="1280x720" title="1280×720">720p</button>
@@ -31,12 +31,12 @@
       </div>
     </div>
 
-    <div class="grupo som">
+    <div class="grupo som" id="grupoSom">
       <button type="button" id="btnMute" class="icone" aria-label="Silenciar" title="Silenciar (M)">
         <svg class="som-ligado" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>
         <svg class="som-desligado" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
       </button>
-      <div class="volume">
+      <div class="volume" id="caixaVolume">
         <input type="range" id="volume" min="0" max="200" step="1" value="100" aria-label="Volume" title="Volume (setas cima/baixo)">
         <div class="medidor" title="Nível do som que está a chegar da placa"><div id="nivel"></div></div>
       </div>
@@ -87,6 +87,19 @@
   <!-- Definições -->
   <div id="painelDefinicoes" class="painel" role="dialog" aria-labelledby="defTitulo" hidden>
     <h2 id="defTitulo">Definições</h2>
+
+    <!-- Com a janela estreita, a resolução, os FPS e o volume mudam-se para aqui -->
+    <section class="secao" id="secaoBarra" hidden>
+      <h3>Formato e som</h3>
+      <div class="linha" id="linhaFormato" hidden>
+        <span class="texto">Formato</span>
+        <div class="destino" id="destinoFormato"></div>
+      </div>
+      <div class="linha" id="linhaVolume" hidden>
+        <span class="texto">Volume</span>
+        <div class="destino" id="destinoVolume"></div>
+      </div>
+    </section>
 
     <section class="secao">
       <h3>Imagem</h3>

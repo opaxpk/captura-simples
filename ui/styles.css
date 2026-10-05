@@ -322,15 +322,21 @@ body.flutuante.inativo * { cursor: none !important; }
 #semImagem[hidden] { display: none; }
 #semImagem strong { font: 600 18px var(--fonte-titulo); color: var(--texto); }
 
-/* ---------- Janelas estreitas ---------- */
-@media (max-width: 1080px) {
-  .rotulo { display: none; }
-  select { max-width: 150px; }
-}
-@media (max-width: 860px) {
-  #volumeValor { display: none; }
-  .volume { width: 84px; }
-}
+/* ---------- Barra compacta (janelas estreitas; ver ajustarBarra em interface.js) ---------- */
+.direita { flex: none; }
+.grupo { flex: none; }
+body.compacto-1 .rotulo { display: none; }
+body.compacto-2 #volumeValor { display: none; }
+body.compacto-2 #barra .volume { width: 80px; }
+body.compacto-3 #barra select { max-width: 130px; }
+body.compacto-3 .grupo { padding: 0 8px; }
+body.compacto-4 #grupoFormato { display: none; }
+
+/* Formato e volume dentro do painel */
+#secaoBarra .linha { grid-template-columns: 80px 1fr; }
+#secaoBarra .destino { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+#secaoBarra .volume { width: 160px; }
+#secaoBarra #volumeValor { display: inline; }
 
 /* ---------- Botões de ícone com estado ---------- */
 .icone { position: relative; }

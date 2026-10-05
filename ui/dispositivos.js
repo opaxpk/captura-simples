@@ -46,6 +46,7 @@ async function atualizarListas() {
 
   el.selVideo.title = el.selVideo.selectedOptions[0]?.text || '';
   el.selAudio.title = el.selAudio.selectedOptions[0]?.text || '';
+  ajustarBarraDepois();
 }
 
 function encontrar(lista, id, nome) {

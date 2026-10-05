@@ -59,6 +59,10 @@ el.volume.addEventListener('input', () => {
 el.btnMute.addEventListener('click', (e) => { if (e.detail) el.btnMute.blur(); alternarMute(); });
 el.btnRetry.addEventListener('click', () => iniciarTudo());
 
+// ---------- Barra adapta-se à largura ----------
+window.addEventListener('resize', ajustarBarraDepois);
+document.fonts?.ready.then(ajustarBarraDepois);
+
 // ---------- Ecrã inteiro e rato ----------
 ponte.onFullscreenChange(aplicarEcraInteiro);
 document.addEventListener('mousemove', mostrarControlos);
@@ -134,6 +138,7 @@ aplicarImagem();
 aplicarSempreCima();
 atualizarControlosDefinicoes();
 aplicarModoBarra();
+ajustarBarra();
 
 ponte.isFullscreen().then((estado) => {
   aplicarEcraInteiro(estado);

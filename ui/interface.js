@@ -88,6 +88,7 @@ function barraFlutuante() {
 
 function aplicarModoBarra() {
   document.body.classList.toggle('flutuante', barraFlutuante());
+  ajustarBarraDepois();
   mostrarControlos();
 }
 
@@ -128,4 +129,54 @@ function aoEscolherSegmento(grupo, callback) {
     if (e.detail) b.blur();
     callback(b.dataset.valor);
   });
+}
+
+// =====================================================================
+// Barra que se adapta à largura da janela
+// ---------------------------------------------------------------------
+// Vai encolhendo por passos, só os que forem precisos para caber tudo:
+//  1. tira os rótulos "Vídeo" e "Áudio"
+//  2. encolhe o volume e tira a percentagem
+//  3. encolhe as listas
+//  4. passa a resolução e os FPS para o painel de Definições
+//  5. passa também o volume para o painel (o botão de silenciar fica)
+// A luz de sinal e os botões da direita ficam sempre visíveis.
+// =====================================================================
+const NIVEIS_COMPACTOS = 5;
+let nivelCompacto = 0;
+
+function aplicarNivelCompacto(n) {
+  nivelCompacto = n;
+  for (let k = 1; k <= NIVEIS_COMPACTOS; k++) {
+    document.body.classList.toggle(`compacto-${k}`, n >= k);
+  }
+
+  const formatoNoPainel = n >= 4;
+  const volumeNoPainel = n >= 5;
+  const pai = (no) => no.parentElement;
+
+  if (formatoNoPainel && pai(el.segRes) !== el.destinoFormato) el.destinoFormato.append(el.segRes, el.segFps);
+  if (!formatoNoPainel && pai(el.segRes) !== el.grupoFormato) el.grupoFormato.append(el.segRes, el.segFps);
+  if (volumeNoPainel && pai(el.caixaVolume) !== el.destinoVolume) el.destinoVolume.append(el.caixaVolume, el.volumeValor);
+  if (!volumeNoPainel && pai(el.caixaVolume) !== el.grupoSom) el.grupoSom.append(el.caixaVolume, el.volumeValor);
+
+  el.linhaFormato.hidden = !formatoNoPainel;
+  el.linhaVolume.hidden = !volumeNoPainel;
+  el.secaoBarra.hidden = !formatoNoPainel;
+}
+
+function barraTransborda() {
+  return el.barra.scrollWidth > el.barra.clientWidth + 1;
+}
+
+function ajustarBarra() {
+  aplicarNivelCompacto(0);
+  let n = 0;
+  while (n < NIVEIS_COMPACTOS && barraTransborda()) aplicarNivelCompacto(++n);
+}
+
+let pedidoAjuste = 0;
+function ajustarBarraDepois() {
+  cancelAnimationFrame(pedidoAjuste);
+  pedidoAjuste = requestAnimationFrame(ajustarBarra);
 }
