@@ -80,6 +80,22 @@ function ligarDefinicoes() {
     guardar();
   });
 
+  // Imagem estável: lida pelo programa ao arrancar, por isso só muda ao reabrir
+  if (ponte.lerOpcoes) {
+    const notaBase = 'Evita uma piscadela quando a barra desaparece';
+    const mostrar = ({ guardadas, emUso }) => {
+      el.optEstavel.checked = guardadas.imagemEstavel;
+      el.notaEstavel.textContent = guardadas.imagemEstavel === emUso.imagemEstavel
+        ? notaBase
+        : 'Fecha e volta a abrir a app para aplicar';
+    };
+    ponte.lerOpcoes().then((o) => { el.linhaEstavel.hidden = false; mostrar(o); });
+    el.optEstavel.addEventListener('change', async () => {
+      await ponte.gravarOpcoes({ imagemEstavel: el.optEstavel.checked });
+      mostrar(await ponte.lerOpcoes());
+    });
+  }
+
   el.btnAtalhos.addEventListener('click', () => abrirPainel(el.ajuda));
   el.ajFechar.addEventListener('click', () => fecharPainel(el.ajuda));
 }

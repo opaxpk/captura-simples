@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('janela', {
     ipcRenderer.on('fullscreen-changed', (_e, estado) => callback(estado));
   },
   setSempreCima: (estado) => ipcRenderer.invoke('janela:sempreCima', estado),
+  lerOpcoes: () => ipcRenderer.invoke('opcoes:ler'),
+  gravarOpcoes: (opcoes) => ipcRenderer.invoke('opcoes:gravar', opcoes),
 });
 
 contextBridge.exposeInMainWorld('atualizacao', {

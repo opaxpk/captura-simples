@@ -1,8 +1,8 @@
 {
   "name": "captura-simples",
   "productName": "Captura Simples",
-  "version": "1.3.0",
-  "versaoBase": 3,
+  "version": "1.4.0",
+  "versaoBase": 4,
   "description": "Pré-visualização simples e de baixa latência para placas de captura USB",
   "main": "main.js",
   "author": "Hugo",

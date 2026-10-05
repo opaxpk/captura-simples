@@ -137,6 +137,16 @@ async function testar(win) {
   verificar('Luz de sinal diz "Sem imagem"', await js('el.sinalTexto.textContent') === 'Sem imagem');
   await capturar(win, '4-sem-imagem');
 
+  verificar('Imagem estável ligada por defeito', app.commandLine.hasSwitch('disable-direct-composition-video-overlays'));
+  const barra = await js(`(() => { document.body.classList.add('flutuante','inativo');
+    const c = getComputedStyle(el.barra); const r = { filtro: c.backdropFilter, vis: c.visibility };
+    document.body.classList.remove('flutuante','inativo'); return r; })()`);
+  verificar('Barra sem desfoque por cima do vídeo', barra.filtro === 'none', barra.filtro);
+  await js(`el.btnDefinicoes.click()`);
+  await esperar(300);
+  verificar('Interruptor "Imagem estável" nas definições', await js('!el.linhaEstavel.hidden && el.optEstavel.checked'));
+  await tecla('Escape');
+
   verificar('Sem erros na consola', errosConsola.length === 0, errosConsola.join(' | '));
 }
 

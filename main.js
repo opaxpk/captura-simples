@@ -11,6 +11,23 @@ app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 
+// Opções que têm de ser lidas antes de o Chromium arrancar (guardadas em opcoes.json)
+// imagemEstavel: não deixar a placa gráfica trocar o vídeo para "overlay" quando nada
+// está por cima dele. Essa troca causa uma piscadela (às vezes verde) quando a barra desaparece.
+const OPCOES_PADRAO = { imagemEstavel: true };
+const ficheiroOpcoes = () => path.join(app.getPath('userData'), 'opcoes.json');
+function lerOpcoes() {
+  try {
+    return { ...OPCOES_PADRAO, ...JSON.parse(fs.readFileSync(ficheiroOpcoes(), 'utf8')) };
+  } catch {
+    return { ...OPCOES_PADRAO };
+  }
+}
+const opcoesArranque = lerOpcoes();
+if (opcoesArranque.imagemEstavel) {
+  app.commandLine.appendSwitch('disable-direct-composition-video-overlays');
+}
+
 // Só uma instância: duas janelas a disputar a mesma placa dava erro
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -361,6 +378,15 @@ app.whenReady().then(() => {
     return novo;
   });
   ipcMain.handle('fullscreen:get', () => (win ? win.isFullScreen() : false));
+  ipcMain.handle('opcoes:ler', () => ({ guardadas: lerOpcoes(), emUso: opcoesArranque }));
+  ipcMain.handle('opcoes:gravar', (_e, novas) => {
+    const atuais = lerOpcoes();
+    for (const k of Object.keys(OPCOES_PADRAO)) {
+      if (novas && typeof novas[k] === typeof OPCOES_PADRAO[k]) atuais[k] = novas[k];
+    }
+    fs.writeFileSync(ficheiroOpcoes(), JSON.stringify(atuais));
+    return atuais;
+  });
   ipcMain.handle('janela:sempreCima', (_e, estado) => {
     if (win) win.setAlwaysOnTop(!!estado, 'floating');
     return !!estado;

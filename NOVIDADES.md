@@ -1,4 +1,3 @@
-- Abre muito mais depressa: o programa passa a instalar-se (num clique, sem perguntas nem administrador) em vez de se descomprimir de cada vez que o abres.
-- Atalhos no ambiente de trabalho e no menu Iniciar.
-- A janela aparece logo e a imagem e o som ligam-se ao mesmo tempo.
-- As atualizações completas instalam-se em silêncio e voltam a abrir a app.
+- Corrige uma piscadela (às vezes verde) por cima da imagem quando a barra desaparece durante o jogo.
+- Nova opção "Imagem estável" nas Definições, ligada por defeito.
+- A barra flutuante deixa de desfocar a imagem por trás, o que também alivia a placa gráfica.

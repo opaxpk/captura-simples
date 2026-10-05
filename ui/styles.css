@@ -287,13 +287,19 @@ body.flutuante #barra {
   left: 50%;
   translate: -50% 0;
   max-width: calc(100vw - 24px);
-  background: rgba(27, 29, 33, .92);
+  background: rgba(27, 29, 33, .96);
   border: 1px solid var(--linha);
   border-radius: 12px;
-  backdrop-filter: blur(14px);
+  transition: opacity .2s ease, transform .2s ease, visibility 0s;
 }
 body.flutuante .direita { margin-left: 0; }
-body.flutuante.inativo #barra { opacity: 0; transform: translateY(-8px); pointer-events: none; }
+body.flutuante.inativo #barra {
+  opacity: 0;
+  transform: translateY(-8px);
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .2s ease, transform .2s ease, visibility 0s linear .2s;
+}
 body.flutuante.inativo,
 body.flutuante.inativo * { cursor: none !important; }
 
