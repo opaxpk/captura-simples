@@ -80,24 +80,67 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round
 .campo { display: flex; align-items: center; gap: 7px; }
 .rotulo { color: var(--fraco); }
 
-/* Listas (a seta é desenhada com a cor de --fraco: um data URI não aceita variáveis) */
-select {
-  appearance: none;
+/* Listas: o <select> guarda o valor mas fica escondido; vê-se o botão e o menu de listas.js */
+.lista-nativa {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.campo { position: relative; }
+
+.lista-botao {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   height: 30px;
   max-width: 190px;
-  padding: 0 28px 0 10px;
+  padding: 0 10px;
   font: inherit;
   color: var(--texto);
-  background: var(--painel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%23959ca6' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E") no-repeat right 10px center;
+  background: var(--painel);
   border: 1px solid var(--borda-controlo);
   border-radius: 7px;
-  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: background-color .12s ease;
+}
+.lista-botao:hover { background: var(--painel-2); }
+.lista-botao:active, .lista-botao[aria-expanded="true"] { background: var(--ativo); }
+.lista-botao:disabled { opacity: .5; cursor: default; }
+.lista-botao.problema { border-color: var(--aviso); }
+.lista-texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lista-seta { flex: none; width: 10px; height: 6px; color: var(--fraco); stroke-width: 1.6; transition: transform .12s ease; }
+.lista-botao[aria-expanded="true"] .lista-seta { transform: rotate(180deg); }
+
+.lista-menu {
+  position: fixed;
+  z-index: 30;
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--carcaca);
+  border: 1px solid var(--linha);
+  border-radius: 10px;
+  box-shadow: var(--sombra);
+  scrollbar-width: thin;
+  scrollbar-color: var(--ativo) transparent;
+}
+.lista-menu:focus, .lista-menu:focus-visible { outline: none; } /* a posição do teclado é a linha realçada */
+.lista-opcao {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 10px 6px 8px;
+  border-radius: 6px;
+  line-height: 1.3;
   cursor: pointer;
 }
-select:hover { background-color: var(--painel-2); }
-select:disabled { opacity: .5; cursor: default; }
-select.problema { border-color: color-mix(in srgb, var(--aviso) 60%, var(--linha)); }
-option { background: var(--painel); color: var(--texto); }
+.lista-opcao.realce { background: var(--painel-2); box-shadow: inset 0 0 0 1px var(--borda-controlo); }
+.lista-opcao[aria-selected="true"] { font-weight: 600; }
+.lista-visto { width: 16px; height: 16px; stroke-width: 1.8; color: var(--ok); visibility: hidden; }
+.lista-opcao[aria-selected="true"] .lista-visto { visibility: visible; }
 
 /* Botões segmentados */
 .segmentos {
@@ -340,7 +383,7 @@ body.flutuante.inativo * { cursor: none !important; }
 body.compacto-1 .rotulo { display: none; }
 body.compacto-2 #volumeValor { display: none; }
 body.compacto-2 #barra .volume { width: 80px; }
-body.compacto-3 #barra select { max-width: 130px; }
+body.compacto-3 #barra .lista-botao { max-width: 130px; }
 body.compacto-3 .grupo { padding: 0 8px; }
 body.compacto-3 .sinal .extra { display: none; }
 body.compacto-4 #grupoFormato { display: none; }
@@ -539,7 +582,6 @@ kbd {
   transform: scale(.96);
 }
 .icone, .segmentos button, .painel .acoes button, #btnRetry { transition: transform .08s ease, background-color .12s ease; }
-select:active { background-color: var(--ativo); }
 
 /* Painéis recebem o foco ao abrir (para o teclado), sem contorno no próprio painel */
 .painel:focus { outline: none; }

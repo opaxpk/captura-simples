@@ -5,6 +5,7 @@ const fs = require('fs'), path = require('path'), os = require('os');
 app.commandLine.appendSwitch('use-fake-device-for-media-stream');
 app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
 app.commandLine.appendSwitch('disable-gpu');
+if (process.env.CAPTURA_ESCALA) app.commandLine.appendSwitch('force-device-scale-factor', process.env.CAPTURA_ESCALA);
 app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'captura-crit-')));
 const pasta = path.resolve(process.env.PASTA || 'capturas');
 fs.mkdirSync(pasta, { recursive: true });
@@ -22,6 +23,8 @@ app.on('browser-window-created', (_e, win) => {
       el.video.srcObject = c.captureStream(30);
       el.selVideo.options[0].text = 'USB3 Video (345f:2131)'; el.selAudio.options[1].text = 'Entrada Digital (USB3 Digital Audio)'; ajustarBarra(); })()`);
     await foto('1-janela');
+    await js(`el.selAudio.previousElementSibling.click()`); await foto('1b-lista-aberta');
+    await js('fecharListas()');
     await js('el.btnDefinicoes.click()'); await foto('2-definicoes');
     await js('fecharPainel()');
     await js(`mostrarPainelAtualizacao('disponivel','Versão 1.5.0 disponível','Atualização pequena: instala-se em segundos, sem fechar a app.',{notas:'- Novidade um\\n- Novidade dois',acao:'Atualizar agora',aoClicar:()=>{}})`); await foto('3-atualizacao');

@@ -18,9 +18,13 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y xvfb
       - run: npm ci
       - name: Testar a app
-        run: xvfb-run -a npm test
+        run: xvfb-run -a -s "-screen 0 1600x1000x24" npm test
         env:
           CAPTURA_CAPTURAS: capturas
+      - name: Testar com o Windows a 150%
+        run: xvfb-run -a -s "-screen 0 2400x1500x24" npm test
+        env:
+          CAPTURA_ESCALA: '1.5'
       - name: Guardar capturas de ecrã
         if: always()
         uses: actions/upload-artifact@v4

@@ -10,6 +10,8 @@ const os = require('os');
 app.commandLine.appendSwitch('use-fake-device-for-media-stream');
 app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
 app.commandLine.appendSwitch('disable-gpu');
+// CAPTURA_ESCALA=1.5 simula o Windows com dimensionamento a 150%
+if (process.env.CAPTURA_ESCALA) app.commandLine.appendSwitch('force-device-scale-factor', process.env.CAPTURA_ESCALA);
 app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'captura-teste-')));
 
 const inicio = Date.now();
@@ -136,6 +138,42 @@ async function testar(win) {
   verificar('Avisa quando a imagem fica toda preta', await js('semImagem && !el.semImagem.hidden'));
   verificar('Luz de sinal diz "Sem imagem"', await js('el.sinalTexto.textContent') === 'Sem imagem');
   await capturar(win, '4-sem-imagem');
+
+  // Listas com o tema da app (o menu nativo do Windows não segue o tema)
+  const lista = await js(`(() => {
+    const b = el.selAudio.previousElementSibling;
+    const nativoEscondido = getComputedStyle(el.selAudio).opacity === '0' && el.selAudio.tabIndex === -1;
+    b.click();
+    const m = document.querySelector('.lista-menu[aria-label="Entrada de áudio"]');
+    return { botao: b.classList.contains('lista-botao'), nativoEscondido, aberto: !m.hidden,
+      expandido: b.getAttribute('aria-expanded'), opcoes: m.querySelectorAll('[role=option]').length,
+      nativas: el.selAudio.options.length, focoNoMenu: document.activeElement === m };
+  })()`);
+  verificar('Lista de áudio abre um menu com o tema da app', lista.botao && lista.nativoEscondido && lista.aberto && lista.expandido === 'true' && lista.focoNoMenu);
+  verificar('O menu mostra todas as opções', lista.opcoes === lista.nativas, `${lista.opcoes} de ${lista.nativas}`);
+  // Escolher com o teclado: seta para cima até "Sem áudio" e Enter
+  const antes = await js('el.selAudio.value');
+  await js(`(() => { const m = document.querySelector('.lista-menu[aria-label="Entrada de áudio"]');
+    m.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+    m.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); })()`);
+  await esperar(800);
+  const depois = await js(`({ valor: el.selAudio.value, def: def.audioId, som: !!streamAudio,
+    texto: el.selAudio.previousElementSibling.textContent.trim(), fechado: document.querySelector('.lista-menu[aria-label="Entrada de áudio"]').hidden })`);
+  verificar('Escolher no menu muda o áudio a sério', antes !== 'none' && depois.valor === 'none' && depois.def === 'none' && !depois.som && depois.texto === 'Sem áudio' && depois.fechado, JSON.stringify(depois));
+  // Voltar a pôr o áudio, também pelo menu (com o rato)
+  await js(`el.selAudio.previousElementSibling.click()`);
+  await js(`document.querySelector('.lista-menu[aria-label="Entrada de áudio"] [role=option]:nth-child(2)').click()`);
+  await esperar(1200);
+  verificar('Escolher com o rato volta a ligar o som', await js('!!streamAudio && el.selAudio.value !== "none"'));
+  // Esc fecha sem mudar nada, e as teclas não disparam atalhos da app
+  await js(`el.selVideo.previousElementSibling.click()`);
+  const volAntes = await js('def.volume');
+  await js(`(() => { const m = document.querySelector('.lista-menu[aria-label="Fonte de vídeo"]');
+    m.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    m.dispatchEvent(new KeyboardEvent('keydown', { key: 'm', bubbles: true }));
+    m.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); })()`);
+  verificar('Teclas no menu não mexem no volume nem silenciam', await js('def.volume') === volAntes && await js('def.mute') === false);
+  verificar('Esc fecha o menu e devolve o foco ao botão', await js(`document.querySelector('.lista-menu[aria-label="Fonte de vídeo"]').hidden && document.activeElement === el.selVideo.previousElementSibling`));
 
   // Janela estreita: a barra encolhe e os botões da direita continuam visíveis
   await js(`el.selVideo.options[0].text = 'USB3 Video (345f:2131)'; ajustarBarra();`);

@@ -1,5 +1,4 @@
-- A luz de sinal mostra o motivo do aviso (por exemplo "pediste 60") e muda de forma, não só de cor.
-- Controlos com mais contraste: listas, deslizadores e interruptores veem-se melhor.
-- Texto um pouco maior e mais legível, na escala do Windows 11.
-- Definições mais arrumadas: "Imagem estável" passou para Janela e o painel cabe inteiro no ecrã.
-- As novidades das atualizações aparecem em lista; os botões reagem ao clique.
+- As listas de vídeo e de áudio abrem um menu com o tema escuro da app, em vez do menu branco do Windows.
+- No menu, a opção escolhida tem um visto e os nomes compridos da placa leem-se inteiros.
+- Dá para escolher com o teclado: setas, Enter, Esc ou as primeiras letras do nome.
+- Testado com o Windows a 125% e 150%.

@@ -107,7 +107,7 @@ function mostrarControlos() {
   clearTimeout(temporizadorInativo);
   if (!barraFlutuante()) return;
   temporizadorInativo = setTimeout(() => {
-    const ocupado = el.barra.matches(':hover') || el.estado.dataset.modo !== 'oculto' || painelAberto();
+    const ocupado = el.barra.matches(':hover') || el.estado.dataset.modo !== 'oculto' || painelAberto() || listaAberta();
     if (ocupado) { mostrarControlos(); return; }
     if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
     document.body.classList.add('inativo');
