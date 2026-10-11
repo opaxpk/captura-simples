@@ -85,7 +85,7 @@
   </main>
 
   <!-- Definições -->
-  <div id="painelDefinicoes" class="painel" role="dialog" aria-labelledby="defTitulo" hidden>
+  <div id="painelDefinicoes" class="painel" tabindex="-1" role="dialog" aria-labelledby="defTitulo" hidden>
     <h2 id="defTitulo">Definições</h2>
 
     <!-- Com a janela estreita, a resolução, os FPS e o volume mudam-se para aqui -->
@@ -133,10 +133,6 @@
         <input type="range" id="optSaturacao" min="0" max="200" step="1">
         <output id="valSaturacao"></output>
       </label>
-      <label class="linha" id="linhaEstavel" hidden>
-        <span class="texto">Imagem estável<small id="notaEstavel">Evita uma piscadela quando a barra desaparece</small></span>
-        <input type="checkbox" class="interruptor" id="optEstavel">
-      </label>
       <button type="button" class="ligacao" id="btnReporImagem">Repor imagem</button>
     </section>
 
@@ -163,6 +159,10 @@
         <span class="texto">Esconder a barra<small>Aparece ao mexer o rato (tecla H)</small></span>
         <input type="checkbox" class="interruptor" id="optBarra">
       </label>
+      <label class="linha" id="linhaEstavel" hidden>
+        <span class="texto">Imagem estável<small id="notaEstavel">Evita uma piscadela quando a barra desaparece</small></span>
+        <input type="checkbox" class="interruptor" id="optEstavel">
+      </label>
     </section>
 
     <div class="rodape">
@@ -172,7 +172,7 @@
   </div>
 
   <!-- Atualizações -->
-  <div id="painelAtualizacao" class="painel" role="dialog" aria-labelledby="atTitulo" data-modo="oculto" hidden>
+  <div id="painelAtualizacao" class="painel" tabindex="-1" role="dialog" aria-labelledby="atTitulo" data-modo="oculto" hidden>
     <h2 id="atTitulo"></h2>
     <p id="atTexto"></p>
     <div class="progresso" id="atProgresso" hidden><div id="atBarra"></div></div>
@@ -185,7 +185,7 @@
   </div>
 
   <!-- Atalhos -->
-  <div id="ajuda" class="painel" role="dialog" aria-labelledby="ajTitulo" hidden>
+  <div id="ajuda" class="painel" tabindex="-1" role="dialog" aria-labelledby="ajTitulo" hidden>
     <h2 id="ajTitulo">Atalhos de teclado</h2>
     <dl class="atalhos">
       <div><dt><kbd>F11</kbd> ou duplo clique</dt><dd>Ecrã inteiro</dd></div>

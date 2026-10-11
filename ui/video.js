@@ -91,6 +91,8 @@ function definirSinal(estado, texto, extra = '', dica = '') {
 function atualizarIndicador() {
   const track = streamVideo && streamVideo.getVideoTracks()[0];
   if (!track || track.readyState !== 'live') return;
+  // Com uma mensagem de erro no ecrã, a luz mantém "Sem sinal"
+  if (el.estado.dataset.modo === 'erro') return;
 
   const s = track.getSettings();
   const fps = Math.round(s.frameRate || 0);
@@ -107,10 +109,17 @@ function atualizarIndicador() {
   if (semImagem) dica += '\n\nA placa está ligada mas a imagem está toda preta.';
   if (notaAudio) dica += `\n\nÁudio: ${notaAudio}.`;
 
+  let motivo = '';
+  if (!semImagem && perdeImagens) motivo = `chegam ${recebidos}`;
+  else if (!semImagem && !formatoCerto) {
+    // Só o que difere do pedido, para ocupar pouco espaço
+    motivo = s.height !== h ? `pediste ${h}p` : `pediste ${def.fps}`;
+  }
+
   definirSinal(
     formatoCerto && !perdeImagens && !semImagem ? 'ok' : 'aviso',
     semImagem ? 'Sem imagem' : `${s.height}p${fps}`,
-    perdeImagens && !semImagem ? `chegam ${recebidos}` : '',
+    motivo,
     dica,
   );
 }

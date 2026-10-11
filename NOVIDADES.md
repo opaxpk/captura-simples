@@ -1,2 +1,5 @@
-- A barra de cima adapta-se ao tamanho da janela: deixa de cortar a luz de sinal e os botões da direita.
-- Em janelas estreitas, a resolução, os FPS e o volume passam para o painel de Definições.
+- A luz de sinal mostra o motivo do aviso (por exemplo "pediste 60") e muda de forma, não só de cor.
+- Controlos com mais contraste: listas, deslizadores e interruptores veem-se melhor.
+- Texto um pouco maior e mais legível, na escala do Windows 11.
+- Definições mais arrumadas: "Imagem estável" passou para Janela e o painel cabe inteiro no ecrã.
+- As novidades das atualizações aparecem em lista; os botões reagem ao clique.

@@ -66,15 +66,25 @@ function painelAberto(p) {
   return p ? !p.hidden : PAINEIS().some((x) => !x.hidden);
 }
 
+let focoAntesDoPainel = null;
+
 function abrirPainel(p) {
+  if (!painelAberto()) focoAntesDoPainel = document.activeElement;
   for (const outro of PAINEIS()) if (outro !== p) outro.hidden = true;
   p.hidden = false;
+  // O teclado continua dentro do painel (Tab passa logo para os controlos dele)
+  if (!p.contains(document.activeElement)) p.focus({ preventScroll: true });
   mostrarControlos();
 }
 
 function fecharPainel(p) {
+  const tinhaFoco = PAINEIS().some((x) => !x.hidden && x.contains(document.activeElement));
   if (p) p.hidden = true;
   else for (const x of PAINEIS()) x.hidden = true;
+  if (tinhaFoco && !painelAberto() && focoAntesDoPainel && document.contains(focoAntesDoPainel)) {
+    focoAntesDoPainel.focus({ preventScroll: true });
+  }
+  if (!painelAberto()) focoAntesDoPainel = null;
 }
 
 // =====================================================================

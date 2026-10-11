@@ -16,13 +16,33 @@ function mostrarPainelAtualizacao(modo, titulo, texto = '', { notas = '', acao =
   p.dataset.modo = modo;
   el.atTitulo.textContent = titulo;
   el.atTexto.textContent = texto;
-  el.atNotas.textContent = notas;
+  mostrarNotas(notas);
   el.atAcao.textContent = acao;
   el.atProgresso.hidden = progresso === null;
   if (progresso !== null) el.atBarra.style.transform = `scaleX(${progresso})`;
   el.atVersao.textContent = versaoAtual ? `Versão instalada: ${versaoAtual}` : '';
   acaoPainelAtualizacao = aoClicar;
   abrirPainel(p);
+}
+
+// As novidades vêm em linhas "- texto": mostram-se como lista
+function mostrarNotas(notas) {
+  el.atNotas.replaceChildren();
+  const linhas = String(notas || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (!linhas.length) return;
+  if (linhas.every((l) => /^[-*•]\s+/.test(l))) {
+    const ul = document.createElement('ul');
+    for (const l of linhas) {
+      const li = document.createElement('li');
+      li.textContent = l.replace(/^[-*•]\s+/, '');
+      ul.append(li);
+    }
+    el.atNotas.append(ul);
+  } else {
+    const p = document.createElement('p');
+    p.textContent = linhas.join('\n');
+    el.atNotas.append(p);
+  }
 }
 
 function marcarDisponivel(r) {

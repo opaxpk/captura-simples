@@ -152,6 +152,11 @@ async function testar(win) {
   verificar('Ao alargar, tudo volta para a barra', volta.formato && volta.volume && volta.nivel <= 1, `nível ${volta.nivel}`);
   win.setContentSize(1280, 760);
 
+  // Luz de sinal: o aviso distingue-se pela forma e pelo texto, não só pela cor
+  const luz = await js(`(() => { const ant = el.sinal.dataset.estado; el.sinal.dataset.estado = 'aviso';
+    const fundo = getComputedStyle(el.sinal.querySelector('.luz')).backgroundColor; el.sinal.dataset.estado = ant; return fundo; })()`);
+  verificar('Aviso da luz de sinal é um anel (não só cor)', luz === 'rgba(0, 0, 0, 0)', luz);
+
   verificar('Imagem estável ligada por defeito', app.commandLine.hasSwitch('disable-direct-composition-video-overlays'));
   const barra = await js(`(() => { document.body.classList.add('flutuante','inativo');
     const c = getComputedStyle(el.barra); const r = { filtro: c.backdropFilter, vis: c.visibility };
