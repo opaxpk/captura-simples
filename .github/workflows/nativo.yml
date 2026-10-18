@@ -1,0 +1,25 @@
+name: Módulo nativo
+
+# Compila e verifica o módulo do som por programa sempre que ele muda (sem publicar nada).
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'native/**'
+      - 'scripts/compilar-nativo.sh'
+      - 'scripts/verificar-nativo.js'
+      - '.github/workflows/nativo.yml'
+
+jobs:
+  compilar:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Compilar e verificar
+        shell: bash
+        run: bash scripts/compilar-nativo.sh
