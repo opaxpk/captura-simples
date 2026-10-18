@@ -21,7 +21,7 @@ Na janela Gravar escolhes **o que gravar**: a **placa de captura** (a consola) o
 - **Seguro:** o ficheiro é escrito no disco a cada segundo (MP4 fragmentado, como no OBS). Se a app ou o PC falharem, o que já foi gravado fica.
 - **Qualidade:** Alta 24 Mb/s, Equilibrada 14 Mb/s (por defeito), Leve 8 Mb/s, para 1080p a 60 fps.
 - O volume e o silenciar só mudam o que ouves, não o som gravado.
-- Pasta por defeito: Vídeos\Captura Simples (muda-se na janela Gravar).
+- Pasta: escolhe-se em **Guarda em**, logo por baixo do botão de gravar (por defeito Vídeos\Captura Simples). A app lembra-se dela.
 
 ## Atalhos
 
