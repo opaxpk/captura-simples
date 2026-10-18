@@ -14,13 +14,23 @@ Para desinstalar: Definições do Windows, Aplicações, Aplicações instaladas
 
 Carrega no botão de gravar (o círculo na barra) ou na tecla **R**. Abre-se a janela **Gravar**, à parte, com o tempo, o tamanho, o espaço livre e as escolhas de qualidade, som e pasta; a janela principal continua só com o jogo.
 
-Na janela Gravar escolhes **o que gravar**: a **placa de captura** (a consola) ou o **ecrã do PC**. Com o ecrã, o som gravado é o som do PC (no Windows) e, se tiveres vários monitores, escolhes qual pela miniatura.
+Na janela Gravar escolhes **o que gravar**: a **placa de captura** (a consola) ou o **ecrã do PC**. Se tiveres vários monitores, escolhes qual pela miniatura.
+
+### Som na gravação
+
+A janela Gravar tem uma mesa de som com uma linha para cada fonte: a **placa de captura**, o **microfone** (escolhes qual; vem desligado) e **cada programa do PC que tem som** (Discord, Spotify, o jogo, o browser…), com o ícone do programa. Cada linha mostra o nível do som que vai para a gravação (verde, âmbar acima de -6 dB, vermelho perto do máximo), tem volume de 0 a 200% e um botão para a tirar da gravação.
+
+- Silenciar na mesa só tira da gravação: continuas a ouvir tudo no PC.
+- Podes mudar volumes e silenciar a meio da gravação.
+- A app lembra-se da escolha de cada programa (por exemplo, o Discord silenciado fica silenciado da próxima vez).
+- **Gravar programas que comecem a tocar:** ligado, um programa novo entra logo na gravação; desligado, só entram os que puseres tu.
+- O som de cada programa usa o Windows 10 versão 2004 ou mais recente (Windows 11 incluído). Sem isso, a mesa mostra a placa e o microfone e, a gravar o ecrã, o som do PC inteiro.
 
 - **Formato:** MP4 com vídeo H.264 e som AAC, o que o DaVinci Resolve, o CapCut e o YouTube abrem diretamente.
 - **Leve para o PC:** usa o codificador da placa gráfica (NVENC na NVIDIA, Quick Sync na Intel, AMF na AMD) quando existe; a janela Gravar diz qual está a ser usado e quanto processador a app gasta.
 - **Seguro:** o ficheiro é escrito no disco a cada segundo (MP4 fragmentado, como no OBS). Se a app ou o PC falharem, o que já foi gravado fica.
 - **Qualidade:** Alta 24 Mb/s, Equilibrada 14 Mb/s (por defeito), Leve 8 Mb/s, para 1080p a 60 fps.
-- O volume e o silenciar só mudam o que ouves, não o som gravado.
+- O volume e o silenciar da janela principal só mudam o que ouves, não o som gravado: o som gravado decide-se na mesa de som.
 - Pasta: escolhe-se em **Guarda em**, logo por baixo do botão de gravar (por defeito Vídeos\Captura Simples). A app lembra-se dela.
 
 ## Atalhos
@@ -50,13 +60,15 @@ O GitHub testa a app e, se o teste passar, gera o instalador e a atualização e
 ### Atualização pequena ou completa?
 
 - **Pequena:** se só mudaste ficheiros da pasta `ui/`, quem tem o programa clica em **Atualizar** e recebe a versão nova em segundos, sem fechar a app.
-- **Completa:** se mudaste `main.js`, `preload.js`, o Electron ou outra dependência, aumenta também `"versaoBase"` no `package.json`. O botão descarrega o instalador novo, instala em silêncio e volta a abrir a app.
+- **Completa:** se mudaste `main.js`, `preload.js`, `gravacao-main.js`, `som-main.js`, o módulo `native/som-programas`, o Electron ou outra dependência, aumenta também `"versaoBase"` no `package.json`. O botão descarrega o instalador novo, instala em silêncio e volta a abrir a app.
 
 ## Estrutura
 
 ```
 main.js, preload.js   base do programa (janela, permissões, atualizações)
 gravacao-main.js      gravação: janela Gravar, escrita do ficheiro, pasta
+som-main.js           som de cada programa: lista, níveis e captação durante a gravação
+native/som-programas/ módulo em C++ (APIs de som do Windows), compilado pelo GitHub ao publicar
 ui/                   tudo o que se vê, atualizável pelo botão
   index.html, styles.css
   estado.js           definições guardadas e estado partilhado
@@ -68,11 +80,15 @@ ui/                   tudo o que se vê, atualizável pelo botão
   definicoes.js       painel de definições
   atualizacoes.js     botão de atualizar
   arranque.js         liga tudo e trata dos atalhos
-  gravacao.js         motor da gravação (WebCodecs + mp4-muxer; reserva MediaRecorder)
+  gravacao.js         gravação na janela principal (fontes, ficheiro, estado)
+  gravacao-worker.js  motor da gravação num Worker: ritmo constante, mesa de som, MP4
+  mistura.js          mesa de som: microfone, níveis, volumes guardados
   gravar.html/.js/.css  janela Gravar
+  gravar-mesa.js      mesa de som da janela Gravar
   listas.js           listas com o tema da app
   mp4-muxer.js        biblioteca mp4-muxer 5.2.2 (MIT), cópia do pacote npm
 scripts/teste.js      teste automático com câmara e microfone falsos
+scripts/som-falso.js  programas falsos com som, para o teste da mesa de som
 ```
 
 ## Desenvolver

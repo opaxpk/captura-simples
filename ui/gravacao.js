@@ -118,9 +118,8 @@ function publicarEstadoGravacao() {
     erro: grav.erro,
     ultima: grav.ultima,
     temImagem: temImagemParaGravar(),
-    temSom: def.gravFonte === 'ecra' ? true : !!(streamAudio && streamAudio.getAudioTracks()[0]),
     qualidade: def.gravQualidade,
-    som: def.gravSom,
+    ...estadoMesa(),
   });
 }
 
@@ -167,14 +166,19 @@ async function configurarVideo(w, h, fps, bps) {
 
 // A leitura das imagens, a codificação e o MP4 correm em gravacao-worker.js, numa linha de
 // execução própria: aqui, com a imagem em direto a ser desenhada, perdiam-se imagens.
-async function iniciarWebCodecs(faixaVideo, faixaSom, w, h, fps, bps) {
+async function iniciarWebCodecs(faixaVideo, fontesSom, w, h, fps, bps) {
   const video = await configurarVideo(w, h, fps, bps);
   if (!video) return false; // passa para o MediaRecorder
 
   // Cópias leves das faixas: parar a gravação não mexe na pré-visualização
   const copiaVideo = faixaVideo.clone();
-  const copiaSom = faixaSom ? faixaSom.clone() : null;
-  const largarCopias = () => { copiaVideo.stop(); if (copiaSom) copiaSom.stop(); };
+  const copiasSom = fontesSom.map((f) => ({ ...f, copia: f.faixa.clone() }));
+  const extras = []; // fontes que entram a meio (microfone)
+  const largarCopias = () => {
+    copiaVideo.stop();
+    copiasSom.forEach((f) => f.copia.stop());
+    extras.forEach((t) => t.stop());
+  };
 
   let ficheiro;
   try {
@@ -186,8 +190,11 @@ async function iniciarWebCodecs(faixaVideo, faixaSom, w, h, fps, bps) {
 
   // Os fluxos de imagens e de som passam para o Worker; quem os lê é ele
   const leituraVideo = new MediaStreamTrackProcessor({ track: copiaVideo, maxBufferSize: 8 }).readable;
-  const leituraSom = copiaSom ? new MediaStreamTrackProcessor({ track: copiaSom, maxBufferSize: 64 }).readable : null;
-  const definicoesSom = copiaSom ? copiaSom.getSettings() : {};
+  const leiturasSom = copiasSom.map((f) => ({
+    chave: f.chave,
+    grupo: f.grupo,
+    leitura: new MediaStreamTrackProcessor({ track: f.copia, maxBufferSize: 64 }).readable,
+  }));
   const trabalhador = new Worker('gravacao-worker.js');
 
   let ativo = false;
@@ -210,6 +217,7 @@ async function iniciarWebCodecs(faixaVideo, faixaSom, w, h, fps, bps) {
         grav.perdidas = m.saltadas;
         grav.repetidas = m.repetidas;
         grav.fpsChegada = m.porSegundo;
+        grav.relogiosSom = m.relogiosSom; // como cada fonte de som foi alinhada (para diagnóstico)
         if (m.erro && ativo) parar(`O codificador parou (${m.erro})`);
         break;
       case 'fim': aoTerminar(m); break;
@@ -222,18 +230,19 @@ async function iniciarWebCodecs(faixaVideo, faixaSom, w, h, fps, bps) {
     aoTerminar({ motivo: erro.message });
   };
 
-  const transferir = leituraSom ? [leituraVideo, leituraSom] : [leituraVideo];
   trabalhador.postMessage({
     tipo: 'iniciar',
     leituraVideo,
-    leituraSom,
+    fontesSom: leiturasSom,
+    comSom: true, // há sempre faixa de som (a mesa de som decide o que entra)
+    mistura: ganhosMistura(),
     configVideo: video.config,
     largura: w,
     altura: h,
     fps,
-    somCanais: definicoesSom.channelCount,
-    somTaxa: definicoesSom.sampleRate,
-  }, transferir);
+  }, [leituraVideo, ...leiturasSom.map((f) => f.leitura)]);
+  // O som de cada programa (Windows) começa a chegar e vai direto para o Worker
+  await comecarSomProgramas(trabalhador);
 
   let info;
   try {
@@ -242,6 +251,7 @@ async function iniciarWebCodecs(faixaVideo, faixaSom, w, h, fps, bps) {
       new Promise((_r, rej) => setTimeout(() => rej(new Error('O motor de gravação não arrancou.')), 8000)),
     ]);
   } catch (e) {
+    pararSomProgramas();
     trabalhador.terminate();
     largarCopias();
     await gravador.fecharFicheiro(ficheiro.id).catch(() => {});
@@ -262,20 +272,31 @@ async function iniciarWebCodecs(faixaVideo, faixaSom, w, h, fps, bps) {
     grav.aGravar = false;
     grav.aGuardar = true;
     publicarEstadoGravacao();
+    largarCopias(); // os fluxos do Worker acabam depois de entregar o que já têm
     trabalhador.postMessage({ tipo: 'parar' });
     const fim = await Promise.race([terminou, new Promise((r) => setTimeout(() => r({ motivo: 'O motor demorou a terminar' }), 20000))]);
+    pararSomProgramas();
     largarCopias();
     trabalhador.terminate();
     await terminarFicheiro(ficheiro.id, duracao, qual || fim.motivo || '');
   }
 
-  sessao = { parar };
+  // Fonte que entra a meio da gravação (o microfone ligado depois de começar)
+  function juntar(chave, grupo, faixa) {
+    if (!ativo) return;
+    const copia = faixa.clone();
+    extras.push(copia);
+    const leitura = new MediaStreamTrackProcessor({ track: copia, maxBufferSize: 64 }).readable;
+    trabalhador.postMessage({ tipo: 'fonte', chave: `${chave}#${extras.length}`, grupo, leitura }, [leitura]);
+  }
+
+  sessao = { parar, juntar };
   grav.formato = info.formato;
   grav.codificador = video.quem;
   grav.comSom = info.comSom;
-  grav.aviso = faixaSom && info.somMuxer === 'opus'
+  grav.aviso = info.somMuxer === 'opus'
     ? 'Este PC não tem codificador AAC: o som foi gravado em Opus, que o DaVinci Resolve pode não ler.'
-    : faixaSom && !info.comSom ? 'Não foi possível gravar o som.' : '';
+    : !info.comSom ? 'Não foi possível gravar o som.' : '';
   grav.nome = ficheiro.nome;
   return true;
 }
@@ -283,7 +304,9 @@ async function iniciarWebCodecs(faixaVideo, faixaSom, w, h, fps, bps) {
 // ---------------------------------------------------------------------
 // Reserva: MediaRecorder (WebM, entregue a cada segundo)
 // ---------------------------------------------------------------------
-async function iniciarMediaRecorder(faixaVideo, faixaSom, bps) {
+async function iniciarMediaRecorder(faixaVideo, fontesSom, bps) {
+  // Sem WebCodecs não há mesa de som: grava só a primeira fonte (a placa, se houver)
+  const faixaSom = fontesSom.length ? fontesSom[0].faixa : null;
   const formatos = [
     { mime: 'video/webm;codecs=h264,opus', nome: 'WebM (H.264 e Opus)', h264: true },
     { mime: 'video/webm;codecs=vp9,opus', nome: 'WebM (VP9 e Opus)', h264: false },
@@ -334,7 +357,7 @@ async function iniciarMediaRecorder(faixaVideo, faixaSom, bps) {
   }
 
   rec.start(1000);
-  sessao = { parar };
+  sessao = { parar, juntar: () => {} };
   grav.formato = formato.nome;
   grav.codificador = 'processador';
   grav.comSom = faixas.length > 1;
@@ -381,13 +404,16 @@ async function iniciarGravacao() {
   publicarEstadoGravacao();
 
   let faixaVideo;
-  let faixaSom = null;
+  const fontesSom = [];
+  // Com o som de cada programa disponível (Windows), o som do PC entra programa a programa;
+  // sem ele, a gravação do ecrã usa o som do PC inteiro ("Som do PC" na mesa)
+  const pedirSomPc = !mesaSom.nativo.disponivel;
   if (grav.fonte === 'ecra') {
     // O programa entrega o ecrã escolhido na janela Gravar (e, no Windows, o som do PC)
     try {
       capturaEcra = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: { ideal: 60, max: 60 }, width: { max: 1920 }, height: { max: 1080 } },
-        audio: def.gravSom,
+        audio: pedirSomPc,
       });
     } catch (e) {
       grav.aPreparar = false;
@@ -395,14 +421,20 @@ async function iniciarGravacao() {
       return;
     }
     faixaVideo = capturaEcra.getVideoTracks()[0];
-    faixaSom = capturaEcra.getAudioTracks()[0] || null;
+    const somPc = capturaEcra.getAudioTracks()[0];
+    if (somPc) fontesSom.push({ chave: 'sistema', grupo: 'sistema', faixa: somPc });
     // Se o ecrã deixar de estar disponível (monitor desligado), para e guarda
     faixaVideo.addEventListener('ended', () => pararGravacao('O ecrã deixou de estar disponível'));
   } else {
     faixaVideo = streamVideo.getVideoTracks()[0];
-    const somVivo = streamAudio && streamAudio.getAudioTracks()[0];
-    faixaSom = def.gravSom && somVivo && somVivo.readyState === 'live' ? somVivo : null;
   }
+  // Placa de captura (também a gravar o ecrã: o som que a app toca não entra pelos programas)
+  const somPlaca = streamAudio && streamAudio.getAudioTracks()[0];
+  if (somPlaca && somPlaca.readyState === 'live') fontesSom.unshift({ chave: 'placa', grupo: 'placa', faixa: somPlaca });
+  // Microfone, se estiver ligado na mesa
+  await atualizarMicrofone();
+  const somMic = mesaSom.micStream && mesaSom.micStream.getAudioTracks()[0];
+  if (somMic && somMic.readyState === 'live') fontesSom.push({ chave: 'micro', grupo: 'micro', faixa: somMic });
 
   const s = faixaVideo.getSettings();
   const w = s.width || 1920;
@@ -417,16 +449,17 @@ async function iniciarGravacao() {
   grav.debito = bps;
   grav.resolucao = `${h}p${fps}`;
   try {
-    const ok = suportaWebCodecs() && await iniciarWebCodecs(faixaVideo, faixaSom, w, h, fps, bps);
-    if (!ok) await iniciarMediaRecorder(faixaVideo, faixaSom, bps);
+    const ok = suportaWebCodecs() && await iniciarWebCodecs(faixaVideo, fontesSom, w, h, fps, bps);
+    if (!ok) await iniciarMediaRecorder(faixaVideo, fontesSom, bps);
   } catch (e) {
     grav.aPreparar = false;
     if (capturaEcra) { capturaEcra.getTracks().forEach((t) => t.stop()); capturaEcra = null; }
+    atualizarMicrofone();
     falhaGravacao(limparErro(e));
     return;
   }
-  if (grav.fonte === 'ecra' && def.gravSom && !faixaSom) {
-    grav.aviso = 'O som do PC não ficou disponível: esta gravação do ecrã não tem som.';
+  if (grav.fonte === 'ecra' && pedirSomPc && !def.mistura.sistema.mudo && !fontesSom.some((f) => f.chave === 'sistema') && !grav.aviso) {
+    grav.aviso = 'O som do PC não ficou disponível: só entram na gravação a placa e o microfone.';
   }
   grav.aPreparar = false;
   grav.aGravar = true;
@@ -438,6 +471,11 @@ async function iniciarGravacao() {
     if (!grav.aGravar && !grav.aGuardar && !grav.aPreparar) { clearInterval(temporizadorEstado); return; }
     publicarEstadoGravacao();
   }, 1000);
+}
+
+// Fonte que entra a meio da gravação (ver mistura.js)
+function juntarFonteGravacao(chave, grupo, faixa) {
+  if (sessao && grav.aGravar && sessao.juntar) sessao.juntar(chave, grupo, faixa);
 }
 
 function pararGravacao(motivo = '') {
@@ -477,16 +515,17 @@ function ligarGravacao() {
       case 'definir':
         if (grav.aGravar || grav.aGuardar || grav.aPreparar) break;
         if (c.qualidade in QUALIDADES) def.gravQualidade = c.qualidade;
-        if (typeof c.som === 'boolean') def.gravSom = c.som;
         if (c.fonte === 'placa' || c.fonte === 'ecra') def.gravFonte = c.fonte;
         grav.erro = '';
         guardar();
         publicarEstadoGravacao();
         break;
+      case 'mistura': mudarMistura(c); break; // também a meio da gravação
       case 'estado': publicarEstadoGravacao(); break;
       default: break;
     }
   });
+  ligarMesaSom();
   atualizarIndicadorGravacao();
   setInterval(() => { if (!grav.aGravar) publicarEstadoGravacao(); }, 3000);
 }

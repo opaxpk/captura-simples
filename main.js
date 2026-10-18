@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const { spawn } = require('child_process');
 const pkg = require('./package.json');
 const { ligarGravacao } = require('./gravacao-main');
+const { ligarSom } = require('./som-main');
 
 // O áudio arranca sem ser preciso clicar, e o Chromium não abranda a janela em segundo plano
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -44,6 +45,7 @@ if (!app.requestSingleInstanceLock()) {
 
 let win = null;
 let gravacao = null;
+let som = null;
 let pastaUiAtual = null;
 
 // =====================================================================
@@ -425,6 +427,13 @@ app.whenReady().then(() => {
     lerOpcoes,
     gravarOpcoes,
     sessao: ses,
+    aoMudarJanela: (aberta) => { if (som) (aberta ? som.aoAbrirGravar() : som.aoFecharGravar()); },
+  });
+
+  // Som de cada programa (mesa de som da janela "Gravar")
+  som = ligarSom({
+    obterJanelaPrincipal: () => win,
+    obterJanelaGravar: () => gravacao.janela(),
   });
 
   createWindow();

@@ -47,7 +47,6 @@ function mudarAtraso(delta) {
 }
 
 function pararAudio() {
-  if (typeof grav !== 'undefined' && grav.comSom) pararGravacaoDaPlaca('O som da placa parou');
   if (fonteAudio) { try { fonteAudio.disconnect(); } catch { /* */ } fonteAudio = null; }
   pararStream(streamAudio);
   streamAudio = null;
@@ -135,6 +134,18 @@ function alternarMute() {
 
 function osdVolume() {
   mostrarOsd(def.mute ? 'Som desligado' : `Volume ${def.volume}%`);
+}
+
+// Pico do som da placa agora (0 a 1), para a mesa de som da janela Gravar
+function picoPlaca() {
+  if (!analisador || !fonteAudio) return 0;
+  analisador.getFloatTimeDomainData(amostrasSom);
+  let pico = 0;
+  for (let i = 0; i < amostrasSom.length; i++) {
+    const a = Math.abs(amostrasSom[i]);
+    if (a > pico) pico = a;
+  }
+  return pico;
 }
 
 // =====================================================================

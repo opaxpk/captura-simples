@@ -110,7 +110,9 @@ const PADRAO = {
   // Janela
   sempreCima: false, abrirEcraInteiro: false, barraEscondida: false,
   // Gravação
-  gravQualidade: 'equilibrada', gravSom: true, gravFonte: 'placa',
+  gravQualidade: 'equilibrada', gravFonte: 'placa',
+  // Mesa de som da gravação (ver mistura.js)
+  mistura: null,
 };
 
 const limitar = (v, min, max, padrao) => {
@@ -134,7 +136,7 @@ function carregarDefinicoes() {
   d.saturacao = limitar(d.saturacao, 0, 200, 100);
   d.atrasoSom = limitar(d.atrasoSom, 0, 250, 0);
   if (!['alta', 'equilibrada', 'leve'].includes(d.gravQualidade)) d.gravQualidade = 'equilibrada';
-  d.gravSom = d.gravSom !== false;
+  delete d.gravSom; // substituído pela mesa de som (1.7.0)
   d.gravFonte = d.gravFonte === 'ecra' ? 'ecra' : 'placa';
   for (const k of ['mute', 'nitido', 'corrigirCores', 'sempreCima', 'abrirEcraInteiro', 'barraEscondida']) d[k] = !!d[k];
   return d;

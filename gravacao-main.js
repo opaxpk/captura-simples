@@ -10,7 +10,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
-function ligarGravacao({ obterJanelaPrincipal, obterPastaUi, preload, icone, lerOpcoes, gravarOpcoes, sessao }) {
+function ligarGravacao({ obterJanelaPrincipal, obterPastaUi, preload, icone, lerOpcoes, gravarOpcoes, sessao, aoMudarJanela }) {
   let janelaGravar = null;
   let ultimoEstado = { aGravar: false };
   const ficheiros = new Map(); // id -> { fh, fila, caminho, bytes, erro }
@@ -64,13 +64,13 @@ function ligarGravacao({ obterJanelaPrincipal, obterPastaUi, preload, icone, ler
     if (p) {
       // Ao lado direito da janela principal, se couber
       const b = p.getBounds();
-      posicao = { x: b.x + b.width - 380 - 24, y: b.y + 72 };
+      posicao = { x: b.x + b.width - 420 - 24, y: b.y + 56 };
     }
     janelaGravar = new BrowserWindow({
-      width: 380,
-      height: 620,
-      minWidth: 340,
-      minHeight: 480,
+      width: 420,
+      height: 760,
+      minWidth: 360,
+      minHeight: 520,
       ...posicao,
       title: 'Gravar',
       backgroundColor: '#1b1d21',
@@ -89,8 +89,12 @@ function ligarGravacao({ obterJanelaPrincipal, obterPastaUi, preload, icone, ler
     janelaGravar.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     janelaGravar.webContents.on('will-navigate', (e) => e.preventDefault());
     janelaGravar.once('ready-to-show', () => janelaGravar.show());
-    janelaGravar.on('closed', () => { janelaGravar = null; });
+    janelaGravar.on('closed', () => {
+      janelaGravar = null;
+      if (aoMudarJanela) aoMudarJanela(false);
+    });
     janelaGravar.loadFile(path.join(obterPastaUi(), 'gravar.html'));
+    if (aoMudarJanela) aoMudarJanela(true);
   }
 
   // ---------- Mensagens ----------

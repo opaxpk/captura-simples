@@ -2,3 +2,5 @@ node_modules/
 dist/
 atualizacao/
 capturas/
+native/som-programas/build/
+native/*.node

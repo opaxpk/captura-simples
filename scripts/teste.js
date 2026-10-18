@@ -13,6 +13,8 @@ app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
 app.commandLine.appendSwitch('disable-gpu');
 // CAPTURA_ESCALA=1.5 simula o Windows com dimensionamento a 150%
 if (process.env.CAPTURA_ESCALA) app.commandLine.appendSwitch('force-device-scale-factor', process.env.CAPTURA_ESCALA);
+// Programas falsos com som (scripts/som-falso.js), para testar a mesa de som
+process.env.CAPTURA_SOM_FALSO = process.env.CAPTURA_SOM_FALSO || '1';
 const pastaDados = fs.mkdtempSync(path.join(os.tmpdir(), 'captura-teste-'));
 app.setPath('userData', pastaDados);
 const pastaGravacoes = path.join(pastaDados, 'gravacoes');
@@ -37,6 +39,16 @@ async function capturar(win, nome) {
   await esperar(500); // deixar a página desenhar
   const img = await win.webContents.capturePage();
   fs.writeFileSync(path.join(pastaCapturas, `${nome}.png`), img.toPNG());
+}
+
+// Volume médio (dB) à volta de 3 kHz (o tom do programa falso), num pedaço do ficheiro gravado.
+// Sem o tom fica perto de -40 dB (os bipes do microfone falso do Chromium); com ele, ~-15 dB.
+function volumeDoPrograma(caminho, inicio = 0, duracao = 0) {
+  const corte = duracao ? `atrim=start=${inicio}:duration=${duracao},` : '';
+  const r = require('child_process').spawnSync('ffmpeg', ['-hide_banner', '-nostats', '-i', caminho, '-vn',
+    '-af', `${corte}bandpass=f=3000:width_type=q:w=8,volumedetect`, '-f', 'null', '-'], { encoding: 'utf8' });
+  const m = /mean_volume:\s*(-?[\d.]+|-inf) dB/.exec(r.stderr || '');
+  return m ? (m[1] === '-inf' ? -200 : parseFloat(m[1])) : NaN;
 }
 
 async function testar(win) {
@@ -237,12 +249,46 @@ async function testar(win) {
     verificar('Janela "Gravar" pronta, com a pasta das gravações', pronto.ativo && pronto.botao === 'Começar a gravar' && pronto.pasta === pastaGravacoes && pronto.estado === 'pronto', JSON.stringify(pronto));
     await capturar(jg, '5-gravar-pronto');
 
+    // ---------- Mesa de som ----------
+    let mesa = null;
+    for (let i = 0; i < 30; i++) {
+      mesa = await jjs(`({ linhas: [...document.querySelectorAll('#canaisProgramas .canal-nome')].map((x) => x.textContent),
+        placa: !document.querySelector('.canal[data-chave="placa"]').classList.contains('desligada'),
+        outroLigado: !document.querySelector('.canal[data-chave="p:teste-outro"]')?.classList.contains('mudo'),
+        nivel: (mesaUi.linhas.get('p:teste-programa') || {}).mostrado || 0,
+        estado: (document.querySelector('.canal[data-chave="p:teste-programa"] .canal-estado') || {}).textContent })`);
+      if (mesa.linhas.length === 2 && mesa.nivel > 0) break;
+      await esperar(150);
+    }
+    verificar('A mesa de som mostra a placa e cada programa com som', mesa.placa && mesa.outroLigado && mesa.linhas.join(',') === 'Outro programa,Programa de teste', JSON.stringify(mesa));
+    verificar('O medidor de cada programa mexe', mesa.nivel > 0.3 && mesa.estado === 'A tocar', `${mesa.nivel.toFixed(2)}, ${mesa.estado}`);
+
+    // Microfone: desligado por defeito; ligar abre-o (e o medidor mexe), desligar fecha-o
+    const btnMic = `document.querySelector('.canal[data-chave="micro"] .canal-mudo')`;
+    const micAntes = await js('!!mesaSom.micStream');
+    await jjs(`${btnMic}.click()`);
+    let micAberto = false;
+    for (let i = 0; i < 30 && !micAberto; i++) { micAberto = await js('!!mesaSom.micStream'); if (!micAberto) await esperar(100); }
+    let micNivel = 0;
+    // O microfone falso do Chromium só dá bipes de vez em quando: espera por um
+    for (let i = 0; i < 80 && !(micNivel > 0); i++) { await esperar(100); micNivel = await jjs(`Math.max(mesaUi.linhas.get('micro').mostrado, mesaUi.linhas.get('micro').alvo)`); }
+    await jg.webContents.executeJavaScript(`document.getElementById('mesa').scrollIntoView()`);
+    await capturar(jg, '5b-gravar-mesa');
+    await jg.webContents.executeJavaScript(`window.scrollTo(0, 0)`);
+    await jjs(`${btnMic}.click()`);
+    await esperar(500);
+    const micDepois = await js('!!mesaSom.micStream');
+    // O nível depende de o microfone falso dar um bipe (o Chromium reparte-os entre a placa e o
+    // microfone): mostra-se, mas não conta para o resultado
+    verificar('Ligar e desligar o microfone na mesa', !micAntes && micAberto && !micDepois, `nível ${micNivel.toFixed(2)}`);
+
     // Começar pela janela "Gravar"
     await jjs(`document.getElementById('btnPrincipal').click()`);
     await esperar(4500);
-    const aGravar = await js(`({ a: grav.aGravar, rec: !el.rec.hidden, bytes: grav.bytes, formato: grav.formato, som: grav.comSom })`);
+    const aGravar = await js(`({ a: grav.aGravar, rec: !el.rec.hidden, bytes: grav.bytes, formato: grav.formato, som: grav.comSom, relogios: grav.relogiosSom })`);
+    verificar('Cada fonte de som usa o relógio das imagens', (aGravar.relogios || []).length >= 2 && aGravar.relogios.every((r) => r.endsWith(':direto')), (aGravar.relogios || []).join(', '));
     const naJanela = await jjs(`({ tempo: document.getElementById('tempo').textContent, botao: document.getElementById('btnPrincipal').textContent,
-      bloqueado: document.getElementById('optSom').disabled })`);
+      bloqueado: document.querySelector('#segQualidade button').disabled })`);
     verificar('Grava e escreve no disco enquanto grava', aGravar.a && aGravar.rec && aGravar.bytes > 0, `${aGravar.bytes} bytes, ${aGravar.formato}`);
     verificar('Janela "Gravar" mostra o tempo e o botão de parar', /^00:0[2-6]$/.test(naJanela.tempo) && naJanela.botao === 'Parar e guardar' && naJanela.bloqueado, JSON.stringify(naJanela));
     await capturar(jg, '6-gravar-a-gravar');
@@ -265,6 +311,8 @@ async function testar(win) {
         const dur = parseFloat(info.format.duration || '0');
         verificar('O ficheiro tem imagem e som e abre noutro programa', tipos === 'audio+video', `${info.streams.map((x) => x.codec_name).join(', ')}`);
         verificar('A duração bate certo com o tempo gravado', dur >= 3 && dur <= 8, `${dur.toFixed(1)} s`);
+        const tom = volumeDoPrograma(ultima.caminho);
+        verificar('O som de um programa entra na gravação', tom > -25, `${tom} dB a 3 kHz`);
       } catch (e) {
         console.log('       (ffprobe não está disponível: não verifiquei o conteúdo do ficheiro)');
       }
@@ -273,6 +321,13 @@ async function testar(win) {
     const depois = await jjs(`({ ultima: !document.getElementById('ultima').hidden, nome: document.getElementById('uNome').textContent })`);
     verificar('Janela "Gravar" mostra a última gravação', depois.ultima && depois.nome === (ultima && ultima.nome));
     await capturar(jg, '8-gravar-guardada');
+
+    // Silenciar um programa na janela Gravar
+    await jjs(`document.querySelector('.canal[data-chave="p:teste-programa"] .canal-mudo').click()`);
+    await esperar(400);
+    const silenciado = await js(`!!(def.mistura.programas['teste-programa'] || {}).mudo`);
+    const linhaMuda = await jjs(`document.querySelector('.canal[data-chave="p:teste-programa"]').classList.contains('mudo')`);
+    verificar('Silenciar um programa na mesa', silenciado && linhaMuda);
 
     // ---------- Ritmo constante com a janela principal ocupada ----------
     await js(`(() => { window._ocupar = setInterval(() => { const f = performance.now() + 250; while (performance.now() < f); }, 400); })()`);
@@ -294,6 +349,8 @@ async function testar(win) {
       const fpsFicheiro = (pts.length - 1) / (pts[pts.length - 1] - pts[0]);
       verificar('Com a janela ocupada, o ficheiro mantém o ritmo certo', Math.abs(fpsFicheiro - ritmo.fps) < 0.5, `${fpsFicheiro.toFixed(2)} fps no ficheiro, pedido ${ritmo.fps}, ${ritmo.chegada} a chegar, ${ritmo.saltadas} saltadas`);
       verificar('Intervalos entre imagens todos iguais (ritmo constante)', irregulares === 0, `${irregulares} irregulares em ${difs.length}`);
+      const tomMudo = volumeDoPrograma(ultRitmo.caminho);
+      verificar('Um programa silenciado não entra na gravação', tomMudo < -30, `${tomMudo} dB a 3 kHz`);
     } catch (e) {
       console.log('       (ffprobe não está disponível: não verifiquei o ritmo)', e.message);
     }
@@ -304,7 +361,10 @@ async function testar(win) {
     const fonteEcra = await js('def.gravFonte');
     verificar('Escolher "Ecrã do PC" na janela Gravar', fonteEcra === 'ecra');
     await jjs(`document.getElementById('btnPrincipal').click()`);
-    await esperar(4500);
+    await esperar(2500);
+    // A meio da gravação, o programa volta a entrar
+    await jjs(`document.querySelector('.canal[data-chave="p:teste-programa"] .canal-mudo').click()`);
+    await esperar(2500);
     const ecraGrav = await js(`({ a: grav.aGravar, fonte: grav.fonte, bytes: grav.bytes, res: grav.resolucao })`);
     verificar('Grava o ecrã do PC', ecraGrav.a && ecraGrav.fonte === 'ecra' && ecraGrav.bytes > 0, `${ecraGrav.res}, ${ecraGrav.bytes} bytes`);
     await capturar(jg, '9-gravar-ecra');
@@ -320,6 +380,10 @@ async function testar(win) {
         const info = JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_type,codec_name,width,height:format=duration', '-of', 'json', ultEcra.caminho]).toString());
         const v = info.streams.find((x) => x.codec_type === 'video');
         verificar('O ficheiro do ecrã abre e tem imagem', !!v && parseFloat(info.format.duration) >= 2, `${v && v.codec_name} ${v && v.width}x${v && v.height}, ${parseFloat(info.format.duration).toFixed(1)} s`);
+        const d = parseFloat(info.format.duration);
+        const antes = volumeDoPrograma(ultEcra.caminho, 0.3, 1.2);
+        const depois = volumeDoPrograma(ultEcra.caminho, d - 1.5, 1.2);
+        verificar('Voltar a pôr um programa a meio da gravação', antes < -30 && depois > -25, `${antes} dB antes, ${depois} dB depois`);
       } catch (e) {
         console.log('       (ffprobe não está disponível: não verifiquei o ficheiro do ecrã)');
       }

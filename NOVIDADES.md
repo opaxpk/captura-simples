@@ -1,3 +1,6 @@
-- Gravações a 60 fps certos: as imagens passam a ser lidas e codificadas numa linha de execução própria, por isso a imagem em direto já não faz perder imagens (antes podiam ficar perto de 45 fps).
-- Ritmo constante, como no OBS: se a placa ou o ecrã falharem uma imagem, repete-se a anterior. O DaVinci Resolve e o CapCut leem melhor ficheiros assim.
-- A janela Gravar mostra quantas imagens por segundo vão para o ficheiro e quantas estão a chegar.
+- Mesa de som na janela Gravar: vês o som que está a sair de cada fonte e escolhes o que entra na gravação.
+- Cada programa do PC com som aparece à parte (Discord, Spotify, o jogo, o browser…), com o ícone, um medidor de nível, volume de 0 a 200% e um botão para o tirar da gravação. Continuas a ouvir tudo no PC.
+- Microfone: escolhe qual e liga-o para falar por cima do jogo. Vem desligado.
+- Podes mudar volumes e silenciar a meio da gravação; a app lembra-se da escolha de cada programa.
+- Opção "Gravar programas que comecem a tocar", para decidir se um programa novo entra logo ou não.
+- Esta é uma atualização completa: o botão de atualizar instala a versão nova e volta a abrir a app.

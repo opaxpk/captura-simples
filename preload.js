@@ -44,3 +44,17 @@ contextBridge.exposeInMainWorld('gravacao', {
   ecras: () => ipcRenderer.invoke('grav:ecras'),
   escolherEcra: (id) => ipcRenderer.invoke('grav:escolherEcra', id),
 });
+
+// Som de cada programa e mesa de som
+contextBridge.exposeInMainWorld('som', {
+  // Janela principal
+  info: () => ipcRenderer.invoke('som:info'),
+  gravar: (ativo) => ipcRenderer.invoke('som:gravar', ativo),
+  publicarNiveis: (niveis) => ipcRenderer.send('som:niveisJanela', niveis),
+  onVigiar: (callback) => ipcRenderer.on('som:vigiar', (_e, ativo) => callback(ativo)),
+  onDados: (callback) => ipcRenderer.on('som:dados', (_e, programa, pid, dados, tempo) => callback(programa, pid, dados, tempo)),
+  onErro: (callback) => ipcRenderer.on('som:erro', (_e, programa, nome, erro) => callback(programa, nome, erro)),
+  // Janela "Gravar"
+  onNiveis: (callback) => ipcRenderer.on('som:niveis', (_e, niveis) => callback(niveis)),
+  janelaPronta: () => ipcRenderer.send('som:janelaPronta'),
+});

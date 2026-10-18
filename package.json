@@ -1,8 +1,8 @@
 {
   "name": "captura-simples",
   "productName": "Captura Simples",
-  "version": "1.6.1",
-  "versaoBase": 6,
+  "version": "1.7.0",
+  "versaoBase": 7,
   "description": "Pré-visualização simples e de baixa latência para placas de captura USB",
   "main": "main.js",
   "author": "Hugo",
@@ -14,7 +14,8 @@
   },
   "devDependencies": {
     "electron": "^38.0.0",
-    "electron-builder": "^26.0.0"
+    "electron-builder": "^26.0.0",
+    "node-addon-api": "^8.5.0"
   },
   "build": {
     "appId": "pt.hugo.capturasimples",
@@ -25,7 +26,9 @@
     "files": [
       "main.js",
       "gravacao-main.js",
+      "som-main.js",
       "preload.js",
+      "native/som_programas.node",
       "ui/**/*",
       "icon.png",
       "package.json"
@@ -55,7 +58,10 @@
       ],
       "language": "2070",
       "artifactName": "CapturaSimples-Setup.exe"
-    }
+    },
+    "asarUnpack": [
+      "native/*.node"
+    ]
   },
   "atualizacoes": {
     "repositorio": "opaxpk/captura-simples"

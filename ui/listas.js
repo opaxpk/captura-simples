@@ -195,5 +195,8 @@ document.addEventListener('mousedown', (e) => {
 window.addEventListener('resize', fecharListas);
 window.addEventListener('blur', fecharListas);
 
-criarListaTema(el.selVideo, 'Fonte de vídeo');
-criarListaTema(el.selAudio, 'Entrada de áudio');
+// Na janela principal; a janela Gravar cria as suas
+if (typeof el !== 'undefined' && el.selVideo) {
+  criarListaTema(el.selVideo, 'Fonte de vídeo');
+  criarListaTema(el.selAudio, 'Entrada de áudio');
+}

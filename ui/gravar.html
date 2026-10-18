@@ -28,6 +28,24 @@
     <button type="button" id="btnPrincipal" class="principal">Começar a gravar</button>
     <p class="dica">Também podes usar a tecla <kbd>R</kbd> na janela principal.</p>
 
+    <section class="mesa" id="mesa" aria-labelledby="tituloMesa">
+      <header class="mesa-cabeca">
+        <h2 id="tituloMesa">Som na gravação</h2>
+        <p>Silenciar aqui só tira da gravação: continuas a ouvir tudo no PC. Podes mudar a meio.</p>
+      </header>
+      <div class="canais" id="canaisFixos"></div>
+      <div class="mesa-sub">
+        <h3>Programas no PC</h3>
+        <span id="contaProgramas" class="conta"></span>
+      </div>
+      <div class="canais" id="canaisProgramas"></div>
+      <p class="mesa-vazia" id="programasVazio" hidden></p>
+      <label class="linha-opcao mesa-novos">
+        <span class="texto-opcao">Gravar programas que comecem a tocar<small>Desliga para que só entrem os que escolheres</small></span>
+        <input type="checkbox" class="interruptor" id="optNovos">
+      </label>
+    </section>
+
     <section class="pasta" aria-label="Onde a gravação é guardada">
       <span class="texto-opcao">Guarda em</span>
       <span id="dPasta" class="caminho">–</span>
@@ -63,11 +81,6 @@
       </div>
       <p class="nota" id="notaQualidade"></p>
 
-      <label class="linha-opcao">
-        <span class="texto-opcao">Gravar o som<small id="notaSom">O volume e o silenciar não mudam o som gravado</small></span>
-        <input type="checkbox" class="interruptor" id="optSom">
-      </label>
-
     </section>
 
     <section class="ultima" id="ultima" hidden>
@@ -77,6 +90,8 @@
     </section>
   </main>
 
+  <script src="listas.js"></script>
   <script src="gravar.js"></script>
+  <script src="gravar-mesa.js"></script>
 </body>
 </html>

@@ -23,10 +23,8 @@ const ui = {
   opcoes: $('opcoes'),
   segFonte: $('segFonte'),
   listaEcras: $('listaEcras'),
-  notaSom: $('notaSom'),
   segQualidade: $('segQualidade'),
   notaQualidade: $('notaQualidade'),
-  optSom: $('optSom'),
   dPasta: $('dPasta'),
   btnMudarPasta: $('btnMudarPasta'),
   btnAbrirPasta: $('btnAbrirPasta'),
@@ -129,9 +127,6 @@ function desenhar() {
     b.disabled = ocupado;
     b.setAttribute('aria-pressed', String(b.dataset.id === ecraEscolhido));
   }
-  ui.notaSom.textContent = fonte === 'ecra'
-    ? 'Tudo o que se ouve no PC (só no Windows)'
-    : 'O volume e o silenciar não mudam o som gravado';
   if (!ocupado && fonte === 'ecra') {
     ui.estadoTexto.textContent = ecras.length > 1 ? 'Pronto para gravar o ecrã escolhido' : 'Pronto para gravar o ecrã do PC';
   }
@@ -141,8 +136,6 @@ function desenhar() {
   for (const b of ui.segQualidade.querySelectorAll('button')) b.disabled = ocupado;
   marcarSegmento(ui.segQualidade, e.qualidade || 'equilibrada');
   ui.notaQualidade.textContent = NOTAS[e.qualidade || 'equilibrada'];
-  ui.optSom.checked = e.som !== false;
-  ui.optSom.disabled = ocupado;
   ui.btnMudarPasta.disabled = ocupado;
   ui.btnMudarPasta.title = ocupado ? 'Para a gravação para mudar a pasta' : 'Escolher onde ficam as gravações';
   ui.dPasta.textContent = info.pasta || '–';
@@ -154,6 +147,7 @@ function desenhar() {
     ui.uDetalhe.textContent = `${duracao(e.ultima.duracao || 0)}, ${tamanho(e.ultima.bytes)}`;
   }
   document.title = e.aGravar ? `A gravar ${duracao(e.duracao || 0)}` : 'Gravar';
+  if (typeof desenharMesa === 'function') desenharMesa(e);
 }
 
 async function atualizarInfo() {
@@ -169,7 +163,6 @@ ui.segQualidade.addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (b && !b.disabled) g.comando({ acao: 'definir', qualidade: b.dataset.valor });
 });
-ui.optSom.addEventListener('change', () => g.comando({ acao: 'definir', som: ui.optSom.checked }));
 ui.segFonte.addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b || b.disabled) return;
@@ -212,7 +205,7 @@ ui.btnAbrirPasta.addEventListener('click', () => g.abrirPasta());
 ui.btnMostrar.addEventListener('click', () => { if (estado.ultima) g.mostrarFicheiro(estado.ultima.caminho); });
 
 document.addEventListener('keydown', (e) => {
-  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  if (e.ctrlKey || e.altKey || e.metaKey || listaAberta()) return;
   if (e.key.toLowerCase() === 'r' && !ui.btnPrincipal.disabled) {
     e.preventDefault();
     ui.btnPrincipal.click();

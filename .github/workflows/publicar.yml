@@ -55,6 +55,15 @@ jobs:
 
       - run: npm ci
 
+      # Som de cada programa: módulo em C++ (native/som-programas), compilado para esta versão do Electron
+      - name: Compilar o som por programa
+        shell: bash
+        run: |
+          EV=$(node -p "require('electron/package.json').version")
+          npx --yes node-gyp@11 rebuild --directory native/som-programas --target="$EV" --arch=x64 --dist-url=https://electronjs.org/headers
+          cp native/som-programas/build/Release/som_programas.node native/som_programas.node
+          ELECTRON_RUN_AS_NODE=1 node_modules/electron/dist/electron.exe scripts/verificar-nativo.js
+
       - name: Gerar o instalador
         run: npx electron-builder --win nsis --x64 --publish never
 
