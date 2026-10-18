@@ -17,8 +17,25 @@
       <p id="estadoTexto" class="estado-texto" aria-live="polite">Pronto para gravar</p>
     </header>
 
+    <section class="fonte" aria-label="O que gravar">
+      <div class="segmentos largo" id="segFonte" role="group" aria-label="O que gravar">
+        <button type="button" data-valor="placa">Placa de captura</button>
+        <button type="button" data-valor="ecra">Ecrã do PC</button>
+      </div>
+      <div class="ecras" id="listaEcras" role="group" aria-label="Que ecrã gravar" hidden></div>
+    </section>
+
     <button type="button" id="btnPrincipal" class="principal">Começar a gravar</button>
     <p class="dica">Também podes usar a tecla <kbd>R</kbd> na janela principal.</p>
+
+    <section class="pasta" aria-label="Onde a gravação é guardada">
+      <span class="texto-opcao">Guarda em</span>
+      <span id="dPasta" class="caminho">–</span>
+      <div class="botoes-pasta">
+        <button type="button" class="secundario" id="btnMudarPasta">Mudar pasta</button>
+        <button type="button" class="secundario" id="btnAbrirPasta">Abrir pasta</button>
+      </div>
+    </section>
 
     <p id="erro" class="erro" role="alert" hidden></p>
     <p id="aviso" class="aviso" hidden></p>
@@ -47,18 +64,10 @@
       <p class="nota" id="notaQualidade"></p>
 
       <label class="linha-opcao">
-        <span class="texto-opcao">Gravar o som<small>O volume e o silenciar não mudam o som gravado</small></span>
+        <span class="texto-opcao">Gravar o som<small id="notaSom">O volume e o silenciar não mudam o som gravado</small></span>
         <input type="checkbox" class="interruptor" id="optSom">
       </label>
 
-      <div class="pasta">
-        <span class="texto-opcao">Pasta</span>
-        <span id="dPasta" class="caminho">–</span>
-        <div class="botoes-pasta">
-          <button type="button" class="secundario" id="btnMudarPasta">Mudar</button>
-          <button type="button" class="secundario" id="btnAbrirPasta">Abrir pasta</button>
-        </div>
-      </div>
     </section>
 
     <section class="ultima" id="ultima" hidden>

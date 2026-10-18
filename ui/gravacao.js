@@ -36,11 +36,13 @@ const grav = {
   codificador: '',
   comSom: false,
   perdidas: 0,
+  fonte: 'placa',
   aviso: '',
   erro: '',
   ultima: null,
 };
 let sessao = null; // a gravação em curso: { parar(motivo) }
+let capturaEcra = null; // stream do ecrã do PC durante a gravação
 
 // ---------------------------------------------------------------------
 // Utilitários
@@ -66,9 +68,13 @@ function duracaoAtual() {
   return grav.aGravar ? Math.floor((performance.now() - grav.inicio) / 1000) : 0;
 }
 
-function temImagemParaGravar() {
+function temImagemDaPlaca() {
   const t = streamVideo && streamVideo.getVideoTracks()[0];
   return !!t && t.readyState === 'live';
+}
+
+function temImagemParaGravar() {
+  return def.gravFonte === 'ecra' ? !!navigator.mediaDevices.getDisplayMedia : temImagemDaPlaca();
 }
 
 function formatarDuracao(s) {
@@ -102,11 +108,13 @@ function publicarEstadoGravacao() {
     codificador: grav.codificador,
     comSom: grav.comSom,
     perdidas: grav.perdidas,
+    fonteAGravar: grav.fonte,
+    fonte: def.gravFonte,
     aviso: grav.aviso,
     erro: grav.erro,
     ultima: grav.ultima,
     temImagem: temImagemParaGravar(),
-    temSom: !!(streamAudio && streamAudio.getAudioTracks()[0]),
+    temSom: def.gravFonte === 'ecra' ? true : !!(streamAudio && streamAudio.getAudioTracks()[0]),
     qualidade: def.gravQualidade,
     som: def.gravSom,
   });
@@ -184,7 +192,11 @@ async function iniciarWebCodecs(faixaVideo, faixaSom, w, h, fps, bps) {
   if (leitorSom) {
     const r = await primeiraAmostra(leitorSom, 1500);
     primeiroSom = r.value || null;
-    if (primeiroSom) audio = await configurarAudio(primeiroSom.numberOfChannels, primeiroSom.sampleRate);
+    // Sem som a chegar (ex.: nada a tocar no PC): usa as definições da faixa e preenche com silêncio
+    const ss = copiaSom.getSettings();
+    const canais = primeiroSom ? primeiroSom.numberOfChannels : (ss.channelCount || 2);
+    const taxa = primeiroSom ? primeiroSom.sampleRate : (ss.sampleRate || 48000);
+    if (copiaSom.readyState === 'live') audio = await configurarAudio(canais, taxa);
     if (!audio) {
       if (primeiroSom) primeiroSom.close();
       primeiroSom = null;
@@ -233,12 +245,15 @@ async function iniciarWebCodecs(faixaVideo, faixaSom, w, h, fps, bps) {
   let ativo = true;
   let motivo = '';
   let ultimaChave = -Infinity;
+  let desvioRelogio = null; // relógio das imagens (µs) menos o relógio da página (µs)
+  let proximoSomUs = null; // onde acaba o último som codificado
 
   const cicloVideo = (async () => {
     for (;;) {
       const { value: imagem, done } = await leitorVideo.read();
       if (done || !imagem) break;
       if (!ativo || erroMotor) { imagem.close(); continue; }
+      desvioRelogio = imagem.timestamp - performance.now() * 1000;
       if (codVideo.encodeQueueSize > FILA_MAXIMA) {
         grav.perdidas++;
         imagem.close();
@@ -251,12 +266,39 @@ async function iniciarWebCodecs(faixaVideo, faixaSom, w, h, fps, bps) {
     }
   })();
 
+  const taxaSom = audio ? audio.config.sampleRate : 48000;
+  const canaisSom = audio ? audio.config.numberOfChannels : 2;
+  function codificarSom(amostra) {
+    const fim = amostra.timestamp + (amostra.numberOfFrames / amostra.sampleRate) * 1e6;
+    // Som que se sobrepõe a silêncio já inserido é descartado (os tempos têm de ir sempre para a frente)
+    if (proximoSomUs !== null && amostra.timestamp < proximoSomUs - 20000) return;
+    codSom.encode(amostra);
+    proximoSomUs = fim;
+  }
+  // Se não chegar som (nada a tocar), insere silêncio para o ficheiro continuar a ter som
+  function preencherSilencio() {
+    if (!ativo || !codSom || erroMotor || desvioRelogio === null) return;
+    const agora = performance.now() * 1000 + desvioRelogio;
+    if (proximoSomUs === null) proximoSomUs = agora - 100000;
+    while (agora - proximoSomUs > 300000) {
+      const frames = Math.round(taxaSom / 10); // 100 ms
+      const silencio = new AudioData({
+        format: 'f32-planar', sampleRate: taxaSom, numberOfChannels: canaisSom, numberOfFrames: frames,
+        timestamp: Math.round(proximoSomUs), data: new Float32Array(frames * canaisSom),
+      });
+      codSom.encode(silencio);
+      silencio.close();
+      proximoSomUs += (frames / taxaSom) * 1e6;
+    }
+  }
+  const tempoSilencio = codSom ? setInterval(preencherSilencio, 250) : null;
+
   const cicloSom = codSom ? (async () => {
-    if (primeiroSom) { codSom.encode(primeiroSom); primeiroSom.close(); }
+    if (primeiroSom) { codificarSom(primeiroSom); primeiroSom.close(); }
     for (;;) {
       const { value: amostra, done } = await leitorSom.read();
       if (done || !amostra) break;
-      if (ativo && !erroMotor) codSom.encode(amostra);
+      if (ativo && !erroMotor) codificarSom(amostra);
       amostra.close();
     }
   })() : Promise.resolve();
@@ -272,6 +314,7 @@ async function iniciarWebCodecs(faixaVideo, faixaSom, w, h, fps, bps) {
     ativo = false;
     motivo = qual;
     clearInterval(vigia);
+    if (tempoSilencio) clearInterval(tempoSilencio);
     const duracao = duracaoAtual();
     grav.aGravar = false;
     grav.aGuardar = true;
@@ -369,6 +412,10 @@ async function iniciarMediaRecorder(faixaVideo, faixaSom, bps) {
 // Começar, parar, terminar
 // ---------------------------------------------------------------------
 async function terminarFicheiro(id, duracao, motivo) {
+  if (capturaEcra) {
+    capturaEcra.getTracks().forEach((t) => t.stop());
+    capturaEcra = null;
+  }
   try {
     const r = await gravador.fecharFicheiro(id);
     if (r) grav.ultima = { nome: r.nome, caminho: r.caminho, bytes: r.bytes, duracao };
@@ -389,23 +436,45 @@ async function iniciarGravacao() {
   if (!gravador || grav.aGravar || grav.aGuardar || grav.aPreparar) return;
   grav.erro = '';
   grav.aviso = '';
-  if (!temImagemParaGravar()) {
+  grav.fonte = def.gravFonte;
+  if (grav.fonte === 'placa' && !temImagemDaPlaca()) {
     falhaGravacao('Não há imagem da placa para gravar.');
     return;
   }
 
-  const faixaVideo = streamVideo.getVideoTracks()[0];
-  const s = faixaVideo.getSettings();
-  const w = s.width || 1920;
-  const h = s.height || 1080;
-  const fps = Math.round(s.frameRate || 60);
-  const bps = debitoPara(w, h, fps);
-  const somVivo = streamAudio && streamAudio.getAudioTracks()[0];
-  const faixaSom = def.gravSom && somVivo && somVivo.readyState === 'live' ? somVivo : null;
-
   // A preparar: o botão fica ocupado até começar
   grav.aPreparar = true;
   publicarEstadoGravacao();
+
+  let faixaVideo;
+  let faixaSom = null;
+  if (grav.fonte === 'ecra') {
+    // O programa entrega o ecrã escolhido na janela Gravar (e, no Windows, o som do PC)
+    try {
+      capturaEcra = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: { ideal: 60, max: 60 }, width: { max: 1920 }, height: { max: 1080 } },
+        audio: def.gravSom,
+      });
+    } catch (e) {
+      grav.aPreparar = false;
+      falhaGravacao(`Não foi possível capturar o ecrã (${e.message}).`);
+      return;
+    }
+    faixaVideo = capturaEcra.getVideoTracks()[0];
+    faixaSom = capturaEcra.getAudioTracks()[0] || null;
+    // Se o ecrã deixar de estar disponível (monitor desligado), para e guarda
+    faixaVideo.addEventListener('ended', () => pararGravacao('O ecrã deixou de estar disponível'));
+  } else {
+    faixaVideo = streamVideo.getVideoTracks()[0];
+    const somVivo = streamAudio && streamAudio.getAudioTracks()[0];
+    faixaSom = def.gravSom && somVivo && somVivo.readyState === 'live' ? somVivo : null;
+  }
+
+  const s = faixaVideo.getSettings();
+  const w = s.width || 1920;
+  const h = s.height || 1080;
+  const fps = Math.round(s.frameRate || (grav.fonte === 'ecra' ? 30 : 60));
+  const bps = debitoPara(w, h, fps);
   grav.bytes = 0;
   grav.perdidas = 0;
   grav.debito = bps;
@@ -415,8 +484,12 @@ async function iniciarGravacao() {
     if (!ok) await iniciarMediaRecorder(faixaVideo, faixaSom, bps);
   } catch (e) {
     grav.aPreparar = false;
+    if (capturaEcra) { capturaEcra.getTracks().forEach((t) => t.stop()); capturaEcra = null; }
     falhaGravacao(limparErro(e));
     return;
+  }
+  if (grav.fonte === 'ecra' && def.gravSom && !faixaSom) {
+    grav.aviso = 'O som do PC não ficou disponível: esta gravação do ecrã não tem som.';
   }
   grav.aPreparar = false;
   grav.aGravar = true;
@@ -434,6 +507,11 @@ function pararGravacao(motivo = '') {
   if (sessao && grav.aGravar) sessao.parar(motivo);
 }
 
+// A placa parou: só interessa se for a placa que está a ser gravada
+function pararGravacaoDaPlaca(motivo) {
+  if (grav.fonte === 'placa') pararGravacao(motivo);
+}
+
 function alternarGravacao() {
   if (grav.aGravar) pararGravacao();
   else if (!grav.aGuardar && !grav.aPreparar) iniciarGravacao();
@@ -442,6 +520,7 @@ function alternarGravacao() {
 // Mudar a placa, o formato ou o áudio a meio estragaria o ficheiro
 function bloqueadoPorGravacao() {
   if (!grav.aGravar && !grav.aGuardar && !grav.aPreparar) return false;
+  if (grav.fonte === 'ecra') return false; // a gravar o ecrã, a placa pode mudar à vontade
   mostrarOsd('Para a gravação antes de mudar a placa, o formato ou o áudio', 2500);
   return true;
 }
@@ -462,6 +541,7 @@ function ligarGravacao() {
         if (grav.aGravar || grav.aGuardar || grav.aPreparar) break;
         if (c.qualidade in QUALIDADES) def.gravQualidade = c.qualidade;
         if (typeof c.som === 'boolean') def.gravSom = c.som;
+        if (c.fonte === 'placa' || c.fonte === 'ecra') def.gravFonte = c.fonte;
         grav.erro = '';
         guardar();
         publicarEstadoGravacao();

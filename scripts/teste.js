@@ -273,6 +273,38 @@ async function testar(win) {
     const depois = await jjs(`({ ultima: !document.getElementById('ultima').hidden, nome: document.getElementById('uNome').textContent })`);
     verificar('Janela "Gravar" mostra a última gravação', depois.ultima && depois.nome === (ultima && ultima.nome));
     await capturar(jg, '8-gravar-guardada');
+
+    // ---------- Gravar o ecrã do PC ----------
+    await jjs(`document.querySelector('#segFonte [data-valor="ecra"]').click()`);
+    await esperar(1500);
+    const fonteEcra = await js('def.gravFonte');
+    verificar('Escolher "Ecrã do PC" na janela Gravar', fonteEcra === 'ecra');
+    await jjs(`document.getElementById('btnPrincipal').click()`);
+    await esperar(4500);
+    const ecraGrav = await js(`({ a: grav.aGravar, fonte: grav.fonte, bytes: grav.bytes, res: grav.resolucao })`);
+    verificar('Grava o ecrã do PC', ecraGrav.a && ecraGrav.fonte === 'ecra' && ecraGrav.bytes > 0, `${ecraGrav.res}, ${ecraGrav.bytes} bytes`);
+    await capturar(jg, '9-gravar-ecra');
+    // A gravar o ecrã, a placa pode mudar
+    await js(`el.segRes.querySelector('[data-valor="1280x720"]').click()`);
+    await esperar(1500);
+    verificar('A gravar o ecrã, a placa pode mudar de formato', await js('def.res') === '1280x720' && await js('grav.aGravar'));
+    await jjs(`document.getElementById('btnPrincipal').click()`);
+    for (let i = 0; i < 40 && await js('grav.aGravar || grav.aGuardar'); i++) await esperar(150);
+    const ultEcra = await js('grav.ultima');
+    if (ultEcra && fs.existsSync(ultEcra.caminho)) {
+      try {
+        const info = JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_type,codec_name,width,height:format=duration', '-of', 'json', ultEcra.caminho]).toString());
+        const v = info.streams.find((x) => x.codec_type === 'video');
+        verificar('O ficheiro do ecrã abre e tem imagem', !!v && parseFloat(info.format.duration) >= 2, `${v && v.codec_name} ${v && v.width}x${v && v.height}, ${parseFloat(info.format.duration).toFixed(1)} s`);
+      } catch (e) {
+        console.log('       (ffprobe não está disponível: não verifiquei o ficheiro do ecrã)');
+      }
+    } else {
+      verificar('O ficheiro do ecrã foi guardado', false);
+    }
+    await jjs(`document.querySelector('#segFonte [data-valor="placa"]').click()`);
+    await js(`el.segRes.querySelector('[data-valor="1920x1080"]').click()`);
+    await esperar(1500);
     jg.close();
   }
 

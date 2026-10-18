@@ -41,4 +41,6 @@ contextBridge.exposeInMainWorld('gravacao', {
   escolherPasta: () => ipcRenderer.invoke('grav:escolherPasta'),
   abrirPasta: () => ipcRenderer.invoke('grav:abrirPasta'),
   mostrarFicheiro: (caminho) => ipcRenderer.invoke('grav:mostrarFicheiro', caminho),
+  ecras: () => ipcRenderer.invoke('grav:ecras'),
+  escolherEcra: (id) => ipcRenderer.invoke('grav:escolherEcra', id),
 });

@@ -3,13 +3,14 @@
 // - passa mensagens entre essa janela e a janela principal, que é quem grava
 //   (é lá que a imagem e o som da placa já estão abertos);
 // - escreve o ficheiro no disco aos bocados, à medida que chega;
-// - pasta das gravações, espaço livre e uso do processador.
-const { BrowserWindow, ipcMain, dialog, shell, app } = require('electron');
+// - pasta das gravações, espaço livre e uso do processador;
+// - gravar o ecrã do PC: entrega o ecrã escolhido e, no Windows, o som do PC.
+const { BrowserWindow, ipcMain, dialog, shell, app, desktopCapturer } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
-function ligarGravacao({ obterJanelaPrincipal, obterPastaUi, preload, icone, lerOpcoes, gravarOpcoes }) {
+function ligarGravacao({ obterJanelaPrincipal, obterPastaUi, preload, icone, lerOpcoes, gravarOpcoes, sessao }) {
   let janelaGravar = null;
   let ultimoEstado = { aGravar: false };
   const ficheiros = new Map(); // id -> { fh, fila, caminho, bytes, erro }
@@ -180,6 +181,47 @@ function ligarGravacao({ obterJanelaPrincipal, obterPastaUi, preload, icone, ler
     const f = ficheiros.get(id);
     return f && f.erro ? f.erro.message : null;
   });
+
+  // ---------- Ecrã do PC ----------
+  let ecraEscolhido = '';
+
+  async function listarEcras(miniaturas) {
+    const fontes = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: miniaturas ? { width: 192, height: 108 } : { width: 0, height: 0 },
+    });
+    return fontes;
+  }
+
+  ipcMain.handle('grav:ecras', async () => {
+    const fontes = await listarEcras(true);
+    return fontes.map((f, i) => ({
+      id: f.id,
+      nome: fontes.length > 1 ? `Ecrã ${i + 1}` : 'Ecrã inteiro',
+      miniatura: f.thumbnail && !f.thumbnail.isEmpty() ? f.thumbnail.toDataURL() : '',
+    }));
+  });
+  ipcMain.handle('grav:escolherEcra', (_e, id) => { ecraEscolhido = typeof id === 'string' ? id : ''; return ecraEscolhido; });
+
+  // getDisplayMedia na janela principal recebe o ecrã escolhido, sem janela de escolha do sistema.
+  // No Windows junta o som do PC ("loopback"); noutros sistemas só a imagem.
+  if (sessao) {
+    sessao.setDisplayMediaRequestHandler(async (pedido, responder) => {
+      const p = principal();
+      const f = pedido.frame;
+      const m = p && p.webContents.mainFrame;
+      const daPrincipal = f && m && f.processId === m.processId && f.routingId === m.routingId;
+      if (!daPrincipal) { responder({}); return; }
+      try {
+        const fontes = await listarEcras(false);
+        const fonte = fontes.find((f) => f.id === ecraEscolhido) || fontes[0];
+        if (!fonte) { responder({}); return; }
+        responder(process.platform === 'win32' && pedido.audioRequested ? { video: fonte, audio: 'loopback' } : { video: fonte });
+      } catch {
+        responder({});
+      }
+    });
+  }
 
   // ---------- Fechar a app a meio de uma gravação: parar e guardar primeiro ----------
   function aoFecharPrincipal(e) {

@@ -14,6 +14,8 @@ Para desinstalar: Definições do Windows, Aplicações, Aplicações instaladas
 
 Carrega no botão de gravar (o círculo na barra) ou na tecla **R**. Abre-se a janela **Gravar**, à parte, com o tempo, o tamanho, o espaço livre e as escolhas de qualidade, som e pasta; a janela principal continua só com o jogo.
 
+Na janela Gravar escolhes **o que gravar**: a **placa de captura** (a consola) ou o **ecrã do PC**. Com o ecrã, o som gravado é o som do PC (no Windows) e, se tiveres vários monitores, escolhes qual pela miniatura.
+
 - **Formato:** MP4 com vídeo H.264 e som AAC, o que o DaVinci Resolve, o CapCut e o YouTube abrem diretamente.
 - **Leve para o PC:** usa o codificador da placa gráfica (NVENC na NVIDIA, Quick Sync na Intel, AMF na AMD) quando existe; a janela Gravar diz qual está a ser usado e quanto processador a app gasta.
 - **Seguro:** o ficheiro é escrito no disco a cada segundo (MP4 fragmentado, como no OBS). Se a app ou o PC falharem, o que já foi gravado fica.

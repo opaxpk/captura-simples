@@ -1,6 +1,3 @@
-- Gravar: novo botão (ou tecla R) que abre a janela Gravar, à parte, para jogares a ver o jogo e a gravação ao mesmo tempo.
-- Grava em MP4 (H.264 e AAC), pronto para o DaVinci Resolve, o CapCut e o YouTube.
-- Usa o codificador da placa gráfica quando existe, por isso quase não pesa no processador. A janela Gravar mostra o tempo, o tamanho, o espaço livre e quanto processador a app gasta.
-- O ficheiro vai sendo escrito no disco: se algo falhar a meio, o que já foi gravado fica.
-- Escolhe a qualidade (Alta, Equilibrada ou Leve), se gravas o som e a pasta.
-- Corrige uma fuga de memória: a app ia ocupando cada vez mais memória com o tempo.
+- Gravar o ecrã do PC: na janela Gravar escolhe "Ecrã do PC" em vez de "Placa de captura". Grava também o som do PC e, com vários monitores, escolhes qual.
+- A pasta onde ficam as gravações aparece logo por baixo do botão de gravar, com "Mudar pasta" e "Abrir pasta".
+- Se nada estiver a tocar no PC, a gravação continua a ter som (silêncio), para o vídeo não ficar desalinhado no editor.

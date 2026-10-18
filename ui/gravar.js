@@ -21,6 +21,9 @@ const ui = {
   dCpu: $('dCpu'),
   dEspaco: $('dEspaco'),
   opcoes: $('opcoes'),
+  segFonte: $('segFonte'),
+  listaEcras: $('listaEcras'),
+  notaSom: $('notaSom'),
   segQualidade: $('segQualidade'),
   notaQualidade: $('notaQualidade'),
   optSom: $('optSom'),
@@ -40,6 +43,8 @@ const NOTAS = {
 };
 
 let estado = { aGravar: false };
+let ecras = [];
+let ecraEscolhido = '';
 let info = { pasta: '', livre: null, cpu: null };
 
 const p2 = (n) => String(n).padStart(2, '0');
@@ -109,6 +114,22 @@ function desenhar() {
     ui.dEspaco.className = segundos < 1800 ? 'atencao' : '';
   }
 
+  // O que gravar
+  const fonte = e.fonte || 'placa';
+  for (const b of ui.segFonte.querySelectorAll('button')) b.disabled = ocupado;
+  marcarSegmento(ui.segFonte, fonte);
+  ui.listaEcras.hidden = fonte !== 'ecra' || ecras.length < 2;
+  for (const b of ui.listaEcras.querySelectorAll('button')) {
+    b.disabled = ocupado;
+    b.setAttribute('aria-pressed', String(b.dataset.id === ecraEscolhido));
+  }
+  ui.notaSom.textContent = fonte === 'ecra'
+    ? 'Tudo o que se ouve no PC (só no Windows)'
+    : 'O volume e o silenciar não mudam o som gravado';
+  if (!ocupado && fonte === 'ecra') {
+    ui.estadoTexto.textContent = ecras.length > 1 ? 'Pronto para gravar o ecrã escolhido' : 'Pronto para gravar o ecrã do PC';
+  }
+
   // Opções (só antes de gravar)
   ui.opcoes.classList.toggle('bloqueadas', ocupado);
   for (const b of ui.segQualidade.querySelectorAll('button')) b.disabled = ocupado;
@@ -117,6 +138,7 @@ function desenhar() {
   ui.optSom.checked = e.som !== false;
   ui.optSom.disabled = ocupado;
   ui.btnMudarPasta.disabled = ocupado;
+  ui.btnMudarPasta.title = ocupado ? 'Para a gravação para mudar a pasta' : 'Escolher onde ficam as gravações';
   ui.dPasta.textContent = info.pasta || '–';
 
   // Última gravação
@@ -142,6 +164,40 @@ ui.segQualidade.addEventListener('click', (e) => {
   if (b && !b.disabled) g.comando({ acao: 'definir', qualidade: b.dataset.valor });
 });
 ui.optSom.addEventListener('change', () => g.comando({ acao: 'definir', som: ui.optSom.checked }));
+ui.segFonte.addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b || b.disabled) return;
+  g.comando({ acao: 'definir', fonte: b.dataset.valor });
+  if (b.dataset.valor === 'ecra') carregarEcras();
+});
+ui.listaEcras.addEventListener('click', async (e) => {
+  const b = e.target.closest('button');
+  if (!b || b.disabled) return;
+  ecraEscolhido = await g.escolherEcra(b.dataset.id);
+  desenhar();
+});
+
+// Monitores ligados (com miniatura), para escolher qual gravar
+async function carregarEcras() {
+  try { ecras = await g.ecras(); } catch { ecras = []; }
+  if (!ecras.some((x) => x.id === ecraEscolhido)) ecraEscolhido = ecras[0] ? ecras[0].id : '';
+  if (ecraEscolhido) await g.escolherEcra(ecraEscolhido);
+  ui.listaEcras.replaceChildren(...ecras.map((x) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'ecra';
+    b.dataset.id = x.id;
+    if (x.miniatura) {
+      const img = document.createElement('img');
+      img.src = x.miniatura;
+      img.alt = '';
+      b.append(img);
+    }
+    b.append(document.createTextNode(x.nome));
+    return b;
+  }));
+  desenhar();
+}
 ui.btnMudarPasta.addEventListener('click', async () => {
   const pasta = await g.escolherPasta();
   if (pasta) await atualizarInfo();
@@ -163,4 +219,5 @@ g.onEstado((novo) => { estado = novo || { aGravar: false }; desenhar(); });
 g.estadoAtual().then((e) => { estado = e || estado; desenhar(); });
 g.comando({ acao: 'estado' });
 atualizarInfo();
+carregarEcras();
 setInterval(atualizarInfo, 2000);

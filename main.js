@@ -381,7 +381,7 @@ app.whenReady().then(() => {
 
   // Aprovar automaticamente câmara/microfone
   const ses = session.defaultSession;
-  const permitido = (p) => p === 'media' || p === 'fullscreen';
+  const permitido = (p) => p === 'media' || p === 'fullscreen' || p === 'display-capture';
   ses.setPermissionRequestHandler((_wc, permission, callback) => callback(permitido(permission)));
   ses.setPermissionCheckHandler((_wc, permission) => permitido(permission));
 
@@ -424,6 +424,7 @@ app.whenReady().then(() => {
     icone: path.join(__dirname, 'icon.png'),
     lerOpcoes,
     gravarOpcoes,
+    sessao: ses,
   });
 
   createWindow();

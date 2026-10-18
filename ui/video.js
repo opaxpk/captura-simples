@@ -7,7 +7,7 @@ function pararStream(s) {
 }
 
 function pararVideo() {
-  if (typeof pararGravacao === 'function') pararGravacao('A imagem da placa parou');
+  if (typeof pararGravacaoDaPlaca === 'function') pararGravacaoDaPlaca('A imagem da placa parou');
   pararStream(streamVideo);
   streamVideo = null;
   el.video.srcObject = null;

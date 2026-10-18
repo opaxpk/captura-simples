@@ -110,7 +110,7 @@ const PADRAO = {
   // Janela
   sempreCima: false, abrirEcraInteiro: false, barraEscondida: false,
   // Gravação
-  gravQualidade: 'equilibrada', gravSom: true,
+  gravQualidade: 'equilibrada', gravSom: true, gravFonte: 'placa',
 };
 
 const limitar = (v, min, max, padrao) => {
@@ -135,6 +135,7 @@ function carregarDefinicoes() {
   d.atrasoSom = limitar(d.atrasoSom, 0, 250, 0);
   if (!['alta', 'equilibrada', 'leve'].includes(d.gravQualidade)) d.gravQualidade = 'equilibrada';
   d.gravSom = d.gravSom !== false;
+  d.gravFonte = d.gravFonte === 'ecra' ? 'ecra' : 'placa';
   for (const k of ['mute', 'nitido', 'corrigirCores', 'sempreCima', 'abrirEcraInteiro', 'barraEscondida']) d[k] = !!d[k];
   return d;
 }
