@@ -4,7 +4,7 @@
 // A imagem e o som da placa já estão abertos aqui para a pré-visualização, por isso a
 // gravação usa essas mesmas faixas (uma cópia leve de cada): não há nova leitura da placa.
 //
-// Motor principal: WebCodecs + mp4-muxer.
+// Motor principal: WebCodecs + mp4-muxer, num Worker (gravacao-worker.js), a ritmo constante.
 //  - H.264 pelo codificador da placa gráfica quando existe (NVENC, Quick Sync, AMF),
 //    o que deixa o processador quase livre. O Chromium diz se esse codificador existe.
 //  - Som AAC (o que o DaVinci Resolve e o CapCut esperam); se o PC não o tiver, Opus.
@@ -20,8 +20,6 @@ const QUALIDADES = {
   equilibrada: { mbps: 14, nome: 'Equilibrada' },
   leve: { mbps: 8, nome: 'Leve' },
 };
-const INTERVALO_CHAVE_US = 2e6; // uma imagem completa a cada 2 s (bom para editar e para o YouTube)
-const FILA_MAXIMA = 8; // se o codificador atrasar mais do que isto, salta imagens em vez de encher a memória
 
 const grav = {
   aGravar: false,
@@ -36,6 +34,9 @@ const grav = {
   codificador: '',
   comSom: false,
   perdidas: 0,
+  repetidas: 0,
+  fpsChegada: 0,
+  fps: 0,
   fonte: 'placa',
   aviso: '',
   erro: '',
@@ -108,6 +109,9 @@ function publicarEstadoGravacao() {
     codificador: grav.codificador,
     comSom: grav.comSom,
     perdidas: grav.perdidas,
+    repetidas: grav.repetidas,
+    fpsChegada: grav.fpsChegada,
+    fps: grav.fps,
     fonteAGravar: grav.fonte,
     fonte: def.gravFonte,
     aviso: grav.aviso,
@@ -161,22 +165,8 @@ async function configurarVideo(w, h, fps, bps) {
   return null;
 }
 
-async function configurarAudio(canais, taxa) {
-  for (const [codec, muxer] of [['mp4a.40.2', 'aac'], ['opus', 'opus']]) {
-    const config = { codec, sampleRate: taxa, numberOfChannels: canais, bitrate: 192000 };
-    try {
-      if ((await AudioEncoder.isConfigSupported(config)).supported) return { config, muxer };
-    } catch { /* tenta a seguinte */ }
-  }
-  return null;
-}
-
-// Lê a primeira amostra para saber canais e frequência (com limite de tempo)
-async function primeiraAmostra(leitor, ms) {
-  const tempo = new Promise((r) => setTimeout(() => r({ value: null, done: true, esgotou: true }), ms));
-  return Promise.race([leitor.read(), tempo]);
-}
-
+// A leitura das imagens, a codificação e o MP4 correm em gravacao-worker.js, numa linha de
+// execução própria: aqui, com a imagem em direto a ser desenhada, perdiam-se imagens.
 async function iniciarWebCodecs(faixaVideo, faixaSom, w, h, fps, bps) {
   const video = await configurarVideo(w, h, fps, bps);
   if (!video) return false; // passa para o MediaRecorder
@@ -184,127 +174,82 @@ async function iniciarWebCodecs(faixaVideo, faixaSom, w, h, fps, bps) {
   // Cópias leves das faixas: parar a gravação não mexe na pré-visualização
   const copiaVideo = faixaVideo.clone();
   const copiaSom = faixaSom ? faixaSom.clone() : null;
-  const leitorVideo = new MediaStreamTrackProcessor({ track: copiaVideo }).readable.getReader();
-  const leitorSom = copiaSom ? new MediaStreamTrackProcessor({ track: copiaSom }).readable.getReader() : null;
-
-  let primeiroSom = null;
-  let audio = null;
-  if (leitorSom) {
-    const r = await primeiraAmostra(leitorSom, 1500);
-    primeiroSom = r.value || null;
-    // Sem som a chegar (ex.: nada a tocar no PC): usa as definições da faixa e preenche com silêncio
-    const ss = copiaSom.getSettings();
-    const canais = primeiroSom ? primeiroSom.numberOfChannels : (ss.channelCount || 2);
-    const taxa = primeiroSom ? primeiroSom.sampleRate : (ss.sampleRate || 48000);
-    if (copiaSom.readyState === 'live') audio = await configurarAudio(canais, taxa);
-    if (!audio) {
-      if (primeiroSom) primeiroSom.close();
-      primeiroSom = null;
-      leitorSom.cancel().catch(() => {});
-      copiaSom.stop();
-    }
-  }
+  const largarCopias = () => { copiaVideo.stop(); if (copiaSom) copiaSom.stop(); };
 
   let ficheiro;
   try {
     ficheiro = await gravador.abrirFicheiro('mp4');
   } catch (e) {
-    copiaVideo.stop();
-    if (copiaSom) copiaSom.stop();
+    largarCopias();
     throw e;
   }
 
-  let erroMotor = null;
-  const muxer = new Mp4Muxer.Muxer({
-    target: new Mp4Muxer.StreamTarget({
-      onData: (dados, posicao) => {
-        gravador.enviarDados(ficheiro.id, dados, posicao);
-        grav.bytes = Math.max(grav.bytes, posicao + dados.byteLength);
-      },
-    }),
-    video: { codec: 'avc', width: w, height: h, frameRate: fps },
-    audio: audio ? { codec: audio.muxer, numberOfChannels: audio.config.numberOfChannels, sampleRate: audio.config.sampleRate } : undefined,
-    fastStart: 'fragmented',
-    minFragmentDuration: 1,
-    // Imagem e som usam o mesmo relógio: o mesmo desvio para os dois mantém-nos alinhados
-    firstTimestampBehavior: 'cross-track-offset',
-  });
+  // Os fluxos de imagens e de som passam para o Worker; quem os lê é ele
+  const leituraVideo = new MediaStreamTrackProcessor({ track: copiaVideo, maxBufferSize: 8 }).readable;
+  const leituraSom = copiaSom ? new MediaStreamTrackProcessor({ track: copiaSom, maxBufferSize: 64 }).readable : null;
+  const definicoesSom = copiaSom ? copiaSom.getSettings() : {};
+  const trabalhador = new Worker('gravacao-worker.js');
 
-  const codVideo = new VideoEncoder({
-    output: (pedaco, meta) => muxer.addVideoChunk(pedaco, meta),
-    error: (e) => { erroMotor = e; },
-  });
-  codVideo.configure(video.config);
+  let ativo = false;
+  let aoComecar;
+  let aoFalhar;
+  let aoTerminar;
+  const comecou = new Promise((res, rej) => { aoComecar = res; aoFalhar = rej; });
+  const terminou = new Promise((res) => { aoTerminar = res; });
 
-  const codSom = audio ? new AudioEncoder({
-    output: (pedaco, meta) => muxer.addAudioChunk(pedaco, meta),
-    error: (e) => { erroMotor = e; },
-  }) : null;
-  if (codSom) codSom.configure(audio.config);
-
-  let ativo = true;
-  let motivo = '';
-  let ultimaChave = -Infinity;
-  let desvioRelogio = null; // relógio das imagens (µs) menos o relógio da página (µs)
-  let proximoSomUs = null; // onde acaba o último som codificado
-
-  const cicloVideo = (async () => {
-    for (;;) {
-      const { value: imagem, done } = await leitorVideo.read();
-      if (done || !imagem) break;
-      if (!ativo || erroMotor) { imagem.close(); continue; }
-      desvioRelogio = imagem.timestamp - performance.now() * 1000;
-      if (codVideo.encodeQueueSize > FILA_MAXIMA) {
-        grav.perdidas++;
-        imagem.close();
-        continue;
-      }
-      const chave = imagem.timestamp - ultimaChave >= INTERVALO_CHAVE_US;
-      if (chave) ultimaChave = imagem.timestamp;
-      codVideo.encode(imagem, { keyFrame: chave });
-      imagem.close();
+  trabalhador.onmessage = (e) => {
+    const m = e.data;
+    switch (m.tipo) {
+      case 'dados':
+        gravador.enviarDados(ficheiro.id, m.dados, m.posicao);
+        grav.bytes = Math.max(grav.bytes, m.posicao + m.dados.byteLength);
+        break;
+      case 'comecou': aoComecar(m); break;
+      case 'falhou': aoFalhar(new Error(m.erro)); aoTerminar({ motivo: m.erro }); break;
+      case 'contas':
+        grav.perdidas = m.saltadas;
+        grav.repetidas = m.repetidas;
+        grav.fpsChegada = m.porSegundo;
+        if (m.erro && ativo) parar(`O codificador parou (${m.erro})`);
+        break;
+      case 'fim': aoTerminar(m); break;
+      default: break;
     }
-  })();
+  };
+  trabalhador.onerror = (e) => {
+    const erro = new Error(`O motor de gravação falhou (${e.message || 'erro desconhecido'})`);
+    aoFalhar(erro);
+    aoTerminar({ motivo: erro.message });
+  };
 
-  const taxaSom = audio ? audio.config.sampleRate : 48000;
-  const canaisSom = audio ? audio.config.numberOfChannels : 2;
-  function codificarSom(amostra) {
-    const fim = amostra.timestamp + (amostra.numberOfFrames / amostra.sampleRate) * 1e6;
-    // Som que se sobrepõe a silêncio já inserido é descartado (os tempos têm de ir sempre para a frente)
-    if (proximoSomUs !== null && amostra.timestamp < proximoSomUs - 20000) return;
-    codSom.encode(amostra);
-    proximoSomUs = fim;
+  const transferir = leituraSom ? [leituraVideo, leituraSom] : [leituraVideo];
+  trabalhador.postMessage({
+    tipo: 'iniciar',
+    leituraVideo,
+    leituraSom,
+    configVideo: video.config,
+    largura: w,
+    altura: h,
+    fps,
+    somCanais: definicoesSom.channelCount,
+    somTaxa: definicoesSom.sampleRate,
+  }, transferir);
+
+  let info;
+  try {
+    info = await Promise.race([
+      comecou,
+      new Promise((_r, rej) => setTimeout(() => rej(new Error('O motor de gravação não arrancou.')), 8000)),
+    ]);
+  } catch (e) {
+    trabalhador.terminate();
+    largarCopias();
+    await gravador.fecharFicheiro(ficheiro.id).catch(() => {});
+    throw e;
   }
-  // Se não chegar som (nada a tocar), insere silêncio para o ficheiro continuar a ter som
-  function preencherSilencio() {
-    if (!ativo || !codSom || erroMotor || desvioRelogio === null) return;
-    const agora = performance.now() * 1000 + desvioRelogio;
-    if (proximoSomUs === null) proximoSomUs = agora - 100000;
-    while (agora - proximoSomUs > 300000) {
-      const frames = Math.round(taxaSom / 10); // 100 ms
-      const silencio = new AudioData({
-        format: 'f32-planar', sampleRate: taxaSom, numberOfChannels: canaisSom, numberOfFrames: frames,
-        timestamp: Math.round(proximoSomUs), data: new Float32Array(frames * canaisSom),
-      });
-      codSom.encode(silencio);
-      silencio.close();
-      proximoSomUs += (frames / taxaSom) * 1e6;
-    }
-  }
-  const tempoSilencio = codSom ? setInterval(preencherSilencio, 250) : null;
-
-  const cicloSom = codSom ? (async () => {
-    if (primeiroSom) { codificarSom(primeiroSom); primeiroSom.close(); }
-    for (;;) {
-      const { value: amostra, done } = await leitorSom.read();
-      if (done || !amostra) break;
-      if (ativo && !erroMotor) codificarSom(amostra);
-      amostra.close();
-    }
-  })() : Promise.resolve();
+  ativo = true;
 
   const vigia = setInterval(async () => {
-    if (erroMotor && ativo) parar(`O codificador parou (${erroMotor.message || erroMotor})`);
     const erro = await gravador.erroEscrita(ficheiro.id);
     if (erro && ativo) parar(`Não foi possível escrever no disco (${erro})`);
   }, 1000);
@@ -312,36 +257,25 @@ async function iniciarWebCodecs(faixaVideo, faixaSom, w, h, fps, bps) {
   async function parar(qual = '') {
     if (!ativo) return;
     ativo = false;
-    motivo = qual;
     clearInterval(vigia);
-    if (tempoSilencio) clearInterval(tempoSilencio);
     const duracao = duracaoAtual();
     grav.aGravar = false;
     grav.aGuardar = true;
     publicarEstadoGravacao();
-
-    copiaVideo.stop();
-    if (copiaSom) copiaSom.stop();
-    await Promise.allSettled([cicloVideo, cicloSom]);
-    try {
-      if (codVideo.state === 'configured') await codVideo.flush();
-      if (codSom && codSom.state === 'configured') await codSom.flush();
-      muxer.finalize();
-    } catch (e) {
-      motivo = motivo || `A gravação não terminou bem (${e.message})`;
-    }
-    try { codVideo.close(); } catch { /* */ }
-    try { if (codSom) codSom.close(); } catch { /* */ }
-    await terminarFicheiro(ficheiro.id, duracao, motivo);
+    trabalhador.postMessage({ tipo: 'parar' });
+    const fim = await Promise.race([terminou, new Promise((r) => setTimeout(() => r({ motivo: 'O motor demorou a terminar' }), 20000))]);
+    largarCopias();
+    trabalhador.terminate();
+    await terminarFicheiro(ficheiro.id, duracao, qual || fim.motivo || '');
   }
 
   sessao = { parar };
-  grav.formato = audio ? `MP4 (H.264 e ${audio.muxer === 'aac' ? 'AAC' : 'Opus'})` : 'MP4 (H.264, sem som)';
+  grav.formato = info.formato;
   grav.codificador = video.quem;
-  grav.comSom = !!audio;
-  grav.aviso = faixaSom && audio && audio.muxer === 'opus'
+  grav.comSom = info.comSom;
+  grav.aviso = faixaSom && info.somMuxer === 'opus'
     ? 'Este PC não tem codificador AAC: o som foi gravado em Opus, que o DaVinci Resolve pode não ler.'
-    : faixaSom && !audio ? 'Não foi possível gravar o som.' : '';
+    : faixaSom && !info.comSom ? 'Não foi possível gravar o som.' : '';
   grav.nome = ficheiro.nome;
   return true;
 }
@@ -477,6 +411,9 @@ async function iniciarGravacao() {
   const bps = debitoPara(w, h, fps);
   grav.bytes = 0;
   grav.perdidas = 0;
+  grav.repetidas = 0;
+  grav.fpsChegada = 0;
+  grav.fps = fps;
   grav.debito = bps;
   grav.resolucao = `${h}p${fps}`;
   try {

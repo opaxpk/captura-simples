@@ -1,3 +1,3 @@
-- Gravar o ecrã do PC: na janela Gravar escolhe "Ecrã do PC" em vez de "Placa de captura". Grava também o som do PC e, com vários monitores, escolhes qual.
-- A pasta onde ficam as gravações aparece logo por baixo do botão de gravar, com "Mudar pasta" e "Abrir pasta".
-- Se nada estiver a tocar no PC, a gravação continua a ter som (silêncio), para o vídeo não ficar desalinhado no editor.
+- Gravações a 60 fps certos: as imagens passam a ser lidas e codificadas numa linha de execução própria, por isso a imagem em direto já não faz perder imagens (antes podiam ficar perto de 45 fps).
+- Ritmo constante, como no OBS: se a placa ou o ecrã falharem uma imagem, repete-se a anterior. O DaVinci Resolve e o CapCut leem melhor ficheiros assim.
+- A janela Gravar mostra quantas imagens por segundo vão para o ficheiro e quantas estão a chegar.

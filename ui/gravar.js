@@ -95,8 +95,14 @@ function desenhar() {
   ui.dFicheiro.textContent = ocupado ? e.nome : 'Ainda sem gravação';
   ui.dTamanho.textContent = ocupado ? tamanho(e.bytes) : '–';
   ui.dImagem.textContent = ocupado && e.resolucao ? `${e.resolucao}, ${(e.debito / 1e6).toFixed(0)} Mb/s` : '–';
-  ui.dPerdidas.textContent = e.perdidas ? `${e.perdidas} (o PC não acompanhou)` : 'Nenhuma';
-  ui.dPerdidas.className = e.perdidas ? 'atencao' : '';
+  // Ritmo: o ficheiro sai sempre com as imagens por segundo certas; mostra também o que chega
+  const partes = [];
+  if (e.fps) partes.push(`${e.fps} no ficheiro`);
+  if (e.fpsChegada) partes.push(`${e.fpsChegada} a chegar`);
+  if (e.perdidas) partes.push(`${e.perdidas} saltadas (o PC não acompanhou)`);
+  ui.dPerdidas.textContent = partes.join(', ') || '–';
+  ui.dPerdidas.className = e.perdidas || (e.fps && e.fpsChegada && e.fpsChegada < e.fps - 5) ? 'atencao' : '';
+  ui.dPerdidas.title = e.repetidas ? `${e.repetidas} imagens repetidas para manter o ritmo certo` : '';
   ui.linhaPerdidas.hidden = !e.aGravar;
   ui.dFormato.textContent = e.formato || '–';
 

@@ -274,6 +274,30 @@ async function testar(win) {
     verificar('Janela "Gravar" mostra a última gravação', depois.ultima && depois.nome === (ultima && ultima.nome));
     await capturar(jg, '8-gravar-guardada');
 
+    // ---------- Ritmo constante com a janela principal ocupada ----------
+    await js(`(() => { window._ocupar = setInterval(() => { const f = performance.now() + 250; while (performance.now() < f); }, 400); })()`);
+    await js('iniciarGravacao()');
+    for (let i = 0; i < 40 && !(await js('grav.aGravar')); i++) await esperar(150);
+    await esperar(6000);
+    const ritmo = await js('({ fps: grav.fps, chegada: grav.fpsChegada, saltadas: grav.perdidas })');
+    await js('clearInterval(window._ocupar); pararGravacao()');
+    for (let i = 0; i < 60 && await js('grav.aGravar || grav.aGuardar'); i++) await esperar(150);
+    const ultRitmo = await js('grav.ultima');
+    try {
+      // Pacotes (o que está no ficheiro), não imagens descodificadas: o descodificador do ffprobe
+      // às vezes falha uma imagem do codificador de software usado neste teste
+      const pts = execFileSync('ffprobe', ['-v', 'error', '-select_streams', 'v', '-show_entries', 'packet=pts_time', '-of', 'csv=p=0', ultRitmo.caminho])
+        .toString().trim().split('\n').map(Number).filter((x) => Number.isFinite(x)).sort((x, y) => x - y);
+      const difs = pts.slice(1).map((t, i) => t - pts[i]);
+      const esperado = 1 / ritmo.fps;
+      const irregulares = difs.filter((d) => Math.abs(d - esperado) > 0.002).length;
+      const fpsFicheiro = (pts.length - 1) / (pts[pts.length - 1] - pts[0]);
+      verificar('Com a janela ocupada, o ficheiro mantém o ritmo certo', Math.abs(fpsFicheiro - ritmo.fps) < 0.5, `${fpsFicheiro.toFixed(2)} fps no ficheiro, pedido ${ritmo.fps}, ${ritmo.chegada} a chegar, ${ritmo.saltadas} saltadas`);
+      verificar('Intervalos entre imagens todos iguais (ritmo constante)', irregulares === 0, `${irregulares} irregulares em ${difs.length}`);
+    } catch (e) {
+      console.log('       (ffprobe não está disponível: não verifiquei o ritmo)', e.message);
+    }
+
     // ---------- Gravar o ecrã do PC ----------
     await jjs(`document.querySelector('#segFonte [data-valor="ecra"]').click()`);
     await esperar(1500);
