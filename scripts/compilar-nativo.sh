@@ -5,7 +5,7 @@
 set -uo pipefail
 EV=$(node -p "require('electron/package.json').version")
 echo "Electron $EV"
-if ! npx --yes node-gyp@11 rebuild --directory native/som-programas --target="$EV" --arch=x64 \
+if ! npx --yes node-gyp@latest rebuild --directory native/som-programas --target="$EV" --arch=x64 \
     --dist-url=https://electronjs.org/headers > gyp.log 2>&1; then
   cat gyp.log
   grep -iE " error |error C|error LNK|fatal error|gyp ERR" gyp.log | head -40 | sed 's/^/::error::/'
