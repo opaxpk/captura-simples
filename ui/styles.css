@@ -387,6 +387,8 @@ body.compacto-3 #barra .lista-botao { max-width: 130px; }
 body.compacto-3 .grupo { padding: 0 8px; }
 body.compacto-3 .sinal .extra { display: none; }
 body.compacto-4 #grupoFormato { display: none; }
+body.compacto-6 #barra .lista-botao { max-width: 100px; }
+body.compacto-6 .direita { gap: 4px; }
 
 /* Formato e volume dentro do painel */
 #secaoBarra .linha { grid-template-columns: 80px 1fr; }
@@ -585,3 +587,28 @@ kbd {
 
 /* Painéis recebem o foco ao abrir (para o teclado), sem contorno no próprio painel */
 .painel:focus { outline: none; }
+
+/* ---------- Gravação: botão e indicador REC ---------- */
+#btnGravar .miolo { fill: var(--erro); stroke: none; }
+#btnGravar.a-gravar { color: var(--erro); }
+#btnGravar.a-gravar circle:first-child { fill: color-mix(in srgb, var(--erro) 18%, transparent); }
+.rec {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 12px 0 10px;
+  font: 600 var(--t-corpo)/1 var(--fonte-titulo);
+  font-variant-numeric: tabular-nums;
+  color: var(--texto);
+  background: color-mix(in srgb, var(--erro) 16%, var(--painel));
+  border: 1px solid var(--erro);
+  border-radius: 15px;
+  cursor: pointer;
+}
+.rec[hidden] { display: none; }
+.rec:hover { background: color-mix(in srgb, var(--erro) 26%, var(--painel)); }
+.rec-ponto { width: 9px; height: 9px; border-radius: 50%; background: var(--erro); animation: piscar-rec 1.6s ease-in-out infinite; }
+@keyframes piscar-rec { 50% { opacity: .35; } }
+/* Na barra compacta, só o ponto e o tempo */
+body.compacto-3 .rec > span:nth-child(2) { display: none; }

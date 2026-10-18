@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+  <title>Gravar</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="gravar.css">
+</head>
+<body class="janela-gravar">
+  <main class="gravar">
+    <header class="relogio" id="relogio" data-estado="pronto">
+      <div class="leitura">
+        <span class="luz-rec" aria-hidden="true"></span>
+        <span id="tempo" class="tempo">00:00</span>
+      </div>
+      <p id="estadoTexto" class="estado-texto" aria-live="polite">Pronto para gravar</p>
+    </header>
+
+    <button type="button" id="btnPrincipal" class="principal">Começar a gravar</button>
+    <p class="dica">Também podes usar a tecla <kbd>R</kbd> na janela principal.</p>
+
+    <p id="erro" class="erro" role="alert" hidden></p>
+    <p id="aviso" class="aviso" hidden></p>
+
+    <dl class="dados">
+      <div><dt>Ficheiro</dt><dd id="dFicheiro">Ainda sem gravação</dd></div>
+      <div><dt>Tamanho</dt><dd id="dTamanho">–</dd></div>
+      <div><dt>Imagem</dt><dd id="dImagem">–</dd></div>
+      <div><dt>Formato</dt><dd id="dFormato">–</dd></div>
+      <div><dt>Codificação</dt><dd id="dCodificador">–</dd></div>
+      <div id="linhaPerdidas" hidden><dt>Imagens perdidas</dt><dd id="dPerdidas">Nenhuma</dd></div>
+      <div><dt>Processador</dt><dd id="dCpu">–</dd></div>
+      <div><dt>Espaço livre</dt><dd id="dEspaco">–</dd></div>
+    </dl>
+
+    <section class="opcoes" id="opcoes">
+      <h2>Antes de gravar</h2>
+      <div class="linha-opcao">
+        <span class="texto-opcao">Qualidade</span>
+        <div class="segmentos" id="segQualidade" role="group" aria-label="Qualidade da gravação">
+          <button type="button" data-valor="alta">Alta</button>
+          <button type="button" data-valor="equilibrada">Equilibrada</button>
+          <button type="button" data-valor="leve">Leve</button>
+        </div>
+      </div>
+      <p class="nota" id="notaQualidade"></p>
+
+      <label class="linha-opcao">
+        <span class="texto-opcao">Gravar o som<small>O volume e o silenciar não mudam o som gravado</small></span>
+        <input type="checkbox" class="interruptor" id="optSom">
+      </label>
+
+      <div class="pasta">
+        <span class="texto-opcao">Pasta</span>
+        <span id="dPasta" class="caminho">–</span>
+        <div class="botoes-pasta">
+          <button type="button" class="secundario" id="btnMudarPasta">Mudar</button>
+          <button type="button" class="secundario" id="btnAbrirPasta">Abrir pasta</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="ultima" id="ultima" hidden>
+      <h2>Última gravação</h2>
+      <p><strong id="uNome"></strong><span id="uDetalhe" class="detalhe"></span></p>
+      <button type="button" class="secundario" id="btnMostrar">Mostrar na pasta</button>
+    </section>
+  </main>
+
+  <script src="gravar.js"></script>
+</body>
+</html>

@@ -2,7 +2,8 @@
 // e confirma que a imagem, o som e os controlos funcionam.
 // Uso: npm test   (no Linux sem ecrã: xvfb-run -a npm test)
 // Com CAPTURA_CAPTURAS=pasta, guarda capturas de ecrã nessa pasta.
-const { app } = require('electron');
+const { app, BrowserWindow } = require('electron');
+const { execFileSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -12,7 +13,11 @@ app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
 app.commandLine.appendSwitch('disable-gpu');
 // CAPTURA_ESCALA=1.5 simula o Windows com dimensionamento a 150%
 if (process.env.CAPTURA_ESCALA) app.commandLine.appendSwitch('force-device-scale-factor', process.env.CAPTURA_ESCALA);
-app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'captura-teste-')));
+const pastaDados = fs.mkdtempSync(path.join(os.tmpdir(), 'captura-teste-'));
+app.setPath('userData', pastaDados);
+const pastaGravacoes = path.join(pastaDados, 'gravacoes');
+fs.mkdirSync(pastaGravacoes);
+fs.writeFileSync(path.join(pastaDados, 'opcoes.json'), JSON.stringify({ pastaGravacoes }));
 
 const inicio = Date.now();
 let paginaPronta = 0;
@@ -132,12 +137,17 @@ async function testar(win) {
     c.width = 320; c.height = 180;
     const g = c.getContext('2d');
     setInterval(() => { g.fillStyle = 'rgb(16,16,16)'; g.fillRect(0, 0, 320, 180); }, 100);
-    el.video.srcObject = c.captureStream(10);
+    window._streamOriginal = streamVideo;
+    streamVideo = c.captureStream(10);
+    el.video.srcObject = streamVideo;
   })()`);
   await esperar(7000);
   verificar('Avisa quando a imagem fica toda preta', await js('semImagem && !el.semImagem.hidden'));
   verificar('Luz de sinal diz "Sem imagem"', await js('el.sinalTexto.textContent') === 'Sem imagem');
   await capturar(win, '4-sem-imagem');
+  // Repor a imagem da câmara falsa para os testes seguintes
+  await js(`(() => { streamVideo.getTracks().forEach((t) => t.stop()); streamVideo = window._streamOriginal; el.video.srcObject = streamVideo; segundosPretos = 0; definirSemImagem(false); })()`);
+  await esperar(500);
 
   // Listas com o tema da app (o menu nativo do Windows não segue o tema)
   const lista = await js(`(() => {
@@ -205,10 +215,82 @@ async function testar(win) {
   verificar('Interruptor "Imagem estável" nas definições', await js('!el.linhaEstavel.hidden && el.optEstavel.checked'));
   await tecla('Escape');
 
+  // ---------- Gravação ----------
+  await js('el.btnGravar.click()');
+  let jg = null;
+  for (let i = 0; i < 40 && !jg; i++) {
+    jg = BrowserWindow.getAllWindows().find((w) => w !== win && w.getTitle() === 'Gravar');
+    if (!jg) await esperar(150);
+  }
+  verificar('O botão Gravar abre a janela "Gravar"', !!jg);
+  if (jg) {
+    const jjs = async (c) => {
+      const r = await jg.webContents.executeJavaScript(`(async () => { try { return { ok: await (${c}) }; } catch (e) { return { erro: String(e && e.stack || e) }; } })()`);
+      if (r.erro) throw new Error(`Janela Gravar: ${r.erro}`);
+      return r.ok;
+    };
+    jg.webContents.on('console-message', (e) => { if (e.level === 'error') errosConsola.push(`Gravar: ${e.message}`); });
+    if (jg.webContents.isLoading()) await new Promise((r) => jg.webContents.once('did-finish-load', r));
+    await esperar(800);
+    const pronto = await jjs(`({ botao: document.getElementById('btnPrincipal').textContent, ativo: !document.getElementById('btnPrincipal').disabled,
+      pasta: document.getElementById('dPasta').textContent, estado: document.getElementById('relogio').dataset.estado })`);
+    verificar('Janela "Gravar" pronta, com a pasta das gravações', pronto.ativo && pronto.botao === 'Começar a gravar' && pronto.pasta === pastaGravacoes && pronto.estado === 'pronto', JSON.stringify(pronto));
+    await capturar(jg, '5-gravar-pronto');
+
+    // Começar pela janela "Gravar"
+    await jjs(`document.getElementById('btnPrincipal').click()`);
+    await esperar(4500);
+    const aGravar = await js(`({ a: grav.aGravar, rec: !el.rec.hidden, bytes: grav.bytes, formato: grav.formato, som: grav.comSom })`);
+    const naJanela = await jjs(`({ tempo: document.getElementById('tempo').textContent, botao: document.getElementById('btnPrincipal').textContent,
+      bloqueado: document.getElementById('optSom').disabled })`);
+    verificar('Grava e escreve no disco enquanto grava', aGravar.a && aGravar.rec && aGravar.bytes > 0, `${aGravar.bytes} bytes, ${aGravar.formato}`);
+    verificar('Janela "Gravar" mostra o tempo e o botão de parar', /^00:0[2-6]$/.test(naJanela.tempo) && naJanela.botao === 'Parar e guardar' && naJanela.bloqueado, JSON.stringify(naJanela));
+    await capturar(jg, '6-gravar-a-gravar');
+    await capturar(win, '7-janela-a-gravar');
+
+    // Mudar o formato a meio é bloqueado
+    const resAntes = await js('def.res');
+    await js(`el.segRes.querySelector('[data-valor="854x480"]').click()`);
+    verificar('Não deixa mudar o formato a meio da gravação', await js('def.res') === resAntes);
+
+    // Parar com a tecla R na janela principal
+    await tecla('r');
+    for (let i = 0; i < 40 && await js('grav.aGravar || grav.aGuardar'); i++) await esperar(150);
+    const ultima = await js('grav.ultima');
+    verificar('R para e guarda a gravação', !!ultima && fs.existsSync(ultima.caminho) && ultima.bytes > 10000, ultima && ultima.nome);
+    if (ultima && fs.existsSync(ultima.caminho)) {
+      try {
+        const info = JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_type,codec_name:format=duration', '-of', 'json', ultima.caminho]).toString());
+        const tipos = info.streams.map((x) => x.codec_type).sort().join('+');
+        const dur = parseFloat(info.format.duration || '0');
+        verificar('O ficheiro tem imagem e som e abre noutro programa', tipos === 'audio+video', `${info.streams.map((x) => x.codec_name).join(', ')}`);
+        verificar('A duração bate certo com o tempo gravado', dur >= 3 && dur <= 8, `${dur.toFixed(1)} s`);
+      } catch (e) {
+        console.log('       (ffprobe não está disponível: não verifiquei o conteúdo do ficheiro)');
+      }
+    }
+    await esperar(600);
+    const depois = await jjs(`({ ultima: !document.getElementById('ultima').hidden, nome: document.getElementById('uNome').textContent })`);
+    verificar('Janela "Gravar" mostra a última gravação', depois.ultima && depois.nome === (ultima && ultima.nome));
+    await capturar(jg, '8-gravar-guardada');
+    jg.close();
+  }
+
+  // Memória estável: a app não pode ir acumulando imagens (houve uma fuga de ~8 MB/s)
+  const memoria = async () => Math.round(app.getAppMetrics().filter((m) => m.type === 'Tab').reduce((t, m) => t + m.memory.workingSetSize, 0) / 1024);
+  const m0 = await memoria();
+  await esperar(10000);
+  const m1 = await memoria();
+  verificar('Memória estável com a imagem a correr', (m1 - m0) / 10 < 2, `${m0} MB -> ${m1} MB em 10 s`);
+
   verificar('Sem erros na consola', errosConsola.length === 0, errosConsola.join(' | '));
 }
 
+let janelaPrincipalVista = false;
 app.on('browser-window-created', (_e, win) => {
+  // Só a janela principal; a janela "Gravar" é testada por dentro do teste
+  if (janelaPrincipalVista) return;
+  janelaPrincipalVista = true;
   win.webContents.on('console-message', (e) => {
     if (e.level === 'error') errosConsola.push(e.message);
   });

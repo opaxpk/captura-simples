@@ -47,6 +47,7 @@ function mudarAtraso(delta) {
 }
 
 function pararAudio() {
+  if (typeof grav !== 'undefined' && grav.comSom) pararGravacao('O som da placa parou');
   if (fonteAudio) { try { fonteAudio.disconnect(); } catch { /* */ } fonteAudio = null; }
   pararStream(streamAudio);
   streamAudio = null;

@@ -41,6 +41,9 @@ const el = {
   destinoVolume: $('destinoVolume'),
   btnEcra: $('btnEcra'),
   btnDefinicoes: $('btnDefinicoes'),
+  btnGravar: $('btnGravar'),
+  rec: $('rec'),
+  recTempo: $('recTempo'),
   btnAtualizar: $('btnAtualizar'),
   sinal: $('sinal'),
   sinalTexto: $('sinalTexto'),
@@ -106,6 +109,8 @@ const PADRAO = {
   atrasoSom: 0,
   // Janela
   sempreCima: false, abrirEcraInteiro: false, barraEscondida: false,
+  // Gravação
+  gravQualidade: 'equilibrada', gravSom: true,
 };
 
 const limitar = (v, min, max, padrao) => {
@@ -128,6 +133,8 @@ function carregarDefinicoes() {
   d.contraste = limitar(d.contraste, 50, 150, 100);
   d.saturacao = limitar(d.saturacao, 0, 200, 100);
   d.atrasoSom = limitar(d.atrasoSom, 0, 250, 0);
+  if (!['alta', 'equilibrada', 'leve'].includes(d.gravQualidade)) d.gravQualidade = 'equilibrada';
+  d.gravSom = d.gravSom !== false;
   for (const k of ['mute', 'nitido', 'corrigirCores', 'sempreCima', 'abrirEcraInteiro', 'barraEscondida']) d[k] = !!d[k];
   return d;
 }

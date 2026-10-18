@@ -4,6 +4,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 const pkg = require('./package.json');
+const { ligarGravacao } = require('./gravacao-main');
 
 // O áudio arranca sem ser preciso clicar, e o Chromium não abranda a janela em segundo plano
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -14,7 +15,7 @@ app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 // Opções que têm de ser lidas antes de o Chromium arrancar (guardadas em opcoes.json)
 // imagemEstavel: não deixar a placa gráfica trocar o vídeo para "overlay" quando nada
 // está por cima dele. Essa troca causa uma piscadela (às vezes verde) quando a barra desaparece.
-const OPCOES_PADRAO = { imagemEstavel: true };
+const OPCOES_PADRAO = { imagemEstavel: true, pastaGravacoes: '' };
 const ficheiroOpcoes = () => path.join(app.getPath('userData'), 'opcoes.json');
 function lerOpcoes() {
   try {
@@ -24,6 +25,14 @@ function lerOpcoes() {
   }
 }
 const opcoesArranque = lerOpcoes();
+function gravarOpcoes(novas) {
+  const atuais = lerOpcoes();
+  for (const k of Object.keys(OPCOES_PADRAO)) {
+    if (novas && typeof novas[k] === typeof OPCOES_PADRAO[k]) atuais[k] = novas[k];
+  }
+  fs.writeFileSync(ficheiroOpcoes(), JSON.stringify(atuais));
+  return atuais;
+}
 if (opcoesArranque.imagemEstavel) {
   app.commandLine.appendSwitch('disable-direct-composition-video-overlays');
 }
@@ -34,6 +43,8 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 let win = null;
+let gravacao = null;
+let pastaUiAtual = null;
 
 // =====================================================================
 // Atualizações
@@ -95,12 +106,14 @@ function carregarConteudo() {
   if (instalado) {
     versaoConteudo = instalado.versao;
     aUsarConteudoDescarregado = true;
+    pastaUiAtual = instalado.pasta;
     win.loadFile(path.join(instalado.pasta, 'index.html'));
     // Rede de segurança: se a versão descarregada não arrancar em 10 s, volta à que vem no .exe
     temporizadorPronto = setTimeout(() => desistirDoConteudo('não arrancou'), 10000);
   } else {
     versaoConteudo = VERSAO;
     aUsarConteudoDescarregado = false;
+    pastaUiAtual = PASTA_UI;
     win.loadFile(path.join(PASTA_UI, 'index.html'));
   }
 }
@@ -344,8 +357,15 @@ function createWindow() {
   win.on('leave-full-screen', () => avisar(false));
   win.on('resize', guardarJanelaDepois);
   win.on('move', guardarJanelaDepois);
-  win.on('close', guardarJanela);
-  win.on('closed', () => { win = null; });
+  win.on('close', (e) => {
+    guardarJanela();
+    if (gravacao) gravacao.aoFecharPrincipal(e);
+  });
+  win.on('closed', () => {
+    win = null;
+    const g = gravacao && gravacao.janela();
+    if (g && !g.isDestroyed()) g.destroy();
+  });
 }
 
 app.on('second-instance', () => {
@@ -379,14 +399,7 @@ app.whenReady().then(() => {
   });
   ipcMain.handle('fullscreen:get', () => (win ? win.isFullScreen() : false));
   ipcMain.handle('opcoes:ler', () => ({ guardadas: lerOpcoes(), emUso: opcoesArranque }));
-  ipcMain.handle('opcoes:gravar', (_e, novas) => {
-    const atuais = lerOpcoes();
-    for (const k of Object.keys(OPCOES_PADRAO)) {
-      if (novas && typeof novas[k] === typeof OPCOES_PADRAO[k]) atuais[k] = novas[k];
-    }
-    fs.writeFileSync(ficheiroOpcoes(), JSON.stringify(atuais));
-    return atuais;
-  });
+  ipcMain.handle('opcoes:gravar', (_e, novas) => gravarOpcoes({ imagemEstavel: novas && novas.imagemEstavel }));
   ipcMain.handle('janela:sempreCima', (_e, estado) => {
     if (win) win.setAlwaysOnTop(!!estado, 'floating');
     return !!estado;
@@ -402,6 +415,16 @@ app.whenReady().then(() => {
     if (url && url.startsWith('https://github.com/')) shell.openExternal(url);
   });
   ipcMain.on('atualizacao:pronto', () => clearTimeout(temporizadorPronto));
+
+  // Gravação (janela "Gravar" e escrita do ficheiro)
+  gravacao = ligarGravacao({
+    obterJanelaPrincipal: () => win,
+    obterPastaUi: () => pastaUiAtual || PASTA_UI,
+    preload: path.join(__dirname, 'preload.js'),
+    icone: path.join(__dirname, 'icon.png'),
+    lerOpcoes,
+    gravarOpcoes,
+  });
 
   createWindow();
 });

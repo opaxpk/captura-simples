@@ -1,0 +1,128 @@
+/* Janela "Gravar": usa as variáveis e os controlos de styles.css. */
+body.janela-gravar {
+  display: block;
+  background: var(--carcaca);
+  overflow-y: auto;
+  user-select: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ativo) transparent;
+}
+
+.gravar { display: grid; gap: 14px; padding: 18px 18px 22px; }
+
+/* Relógio: o elemento marcante, como a luz de sinal na janela principal */
+.relogio {
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px;
+  background: var(--painel);
+  border: 1px solid var(--linha);
+  border-radius: 12px;
+}
+.leitura { display: flex; align-items: center; gap: 12px; }
+.tempo {
+  font: 600 40px/1 var(--fonte-titulo);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .01em;
+}
+.luz-rec { width: 14px; height: 14px; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 2px var(--fraco); }
+.estado-texto { color: var(--fraco); }
+
+.relogio[data-estado="a-gravar"] { border-color: var(--erro); background: color-mix(in srgb, var(--erro) 10%, var(--painel)); }
+.relogio[data-estado="a-gravar"] .luz-rec { background: var(--erro); box-shadow: 0 0 10px color-mix(in srgb, var(--erro) 70%, transparent); animation: piscar-rec 1.6s ease-in-out infinite; }
+.relogio[data-estado="a-gravar"] .estado-texto { color: var(--texto); }
+.relogio[data-estado="a-guardar"] .luz-rec { background: var(--aviso); border-radius: 2px; box-shadow: none; }
+.relogio[data-estado="sem-imagem"] .tempo { color: var(--fraco); }
+
+/* Botão principal */
+.principal {
+  height: 44px;
+  font: 600 var(--t-corpo) var(--fonte);
+  color: var(--realce);
+  background: var(--erro);
+  border: 0;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: transform .08s ease, filter .12s ease;
+}
+.principal:hover { filter: brightness(1.08); }
+.principal:active { transform: scale(.98); }
+.principal.parar { color: var(--carcaca); background: var(--texto); }
+.principal:disabled { opacity: .5; cursor: default; filter: none; transform: none; }
+.dica { margin-top: -6px; color: var(--fraco); font-size: var(--t-legenda); text-align: center; }
+
+.erro {
+  padding: 10px 12px;
+  color: var(--texto);
+  background: color-mix(in srgb, var(--erro) 14%, var(--painel));
+  border: 1px solid color-mix(in srgb, var(--erro) 55%, var(--linha));
+  border-radius: 8px;
+  line-height: 1.45;
+  user-select: text;
+}
+.erro[hidden] { display: none; }
+.aviso {
+  padding: 10px 12px;
+  line-height: 1.45;
+  background: color-mix(in srgb, var(--aviso) 12%, var(--painel));
+  border: 1px solid color-mix(in srgb, var(--aviso) 50%, var(--linha));
+  border-radius: 8px;
+  user-select: text;
+}
+.aviso[hidden], .dados div[hidden] { display: none; }
+
+/* Números */
+.dados { margin: 0; display: grid; }
+.dados div {
+  display: grid;
+  grid-template-columns: 104px 1fr;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--linha);
+}
+.dados div:last-child { border-bottom: 0; }
+.dados dt { color: var(--fraco); }
+.dados dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; user-select: text; }
+.dados dd.bom { color: var(--ok); }
+.dados dd.atencao { color: var(--aviso); }
+
+/* Opções */
+.opcoes, .ultima { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--linha); }
+.opcoes h2, .ultima h2 { font: 600 var(--t-legenda) var(--fonte); color: var(--fraco); }
+.opcoes.bloqueadas { opacity: .55; }
+.linha-opcao { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 34px; }
+.texto-opcao { display: flex; flex-direction: column; gap: 2px; }
+.texto-opcao small { font-size: var(--t-legenda); color: var(--fraco); }
+.nota { margin-top: -4px; color: var(--fraco); font-size: var(--t-legenda); line-height: 1.4; }
+
+.pasta { display: grid; gap: 6px; }
+.caminho {
+  padding: 7px 10px;
+  font-size: var(--t-legenda);
+  color: var(--texto);
+  background: var(--painel);
+  border: 1px solid var(--linha);
+  border-radius: 7px;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.botoes-pasta { display: flex; gap: 8px; }
+
+.secundario {
+  height: 32px;
+  padding: 0 14px;
+  font: 600 var(--t-corpo) var(--fonte);
+  color: var(--texto);
+  background: transparent;
+  border: 1px solid var(--borda-controlo);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: transform .08s ease, background-color .12s ease;
+}
+.secundario:hover { background: var(--painel-2); }
+.secundario:active { transform: scale(.96); }
+.secundario:disabled { opacity: .5; cursor: default; transform: none; }
+
+.ultima p { display: grid; gap: 2px; overflow-wrap: anywhere; user-select: text; }
+.ultima .detalhe { color: var(--fraco); font-size: var(--t-legenda); }
+.ultima .secundario { justify-self: start; }

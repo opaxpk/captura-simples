@@ -150,9 +150,10 @@ function aoEscolherSegmento(grupo, callback) {
 //  3. encolhe as listas
 //  4. passa a resolução e os FPS para o painel de Definições
 //  5. passa também o volume para o painel (o botão de silenciar fica)
+//  6. encolhe ainda mais as listas (janela mínima)
 // A luz de sinal e os botões da direita ficam sempre visíveis.
 // =====================================================================
-const NIVEIS_COMPACTOS = 5;
+const NIVEIS_COMPACTOS = 6;
 let nivelCompacto = 0;
 
 function aplicarNivelCompacto(n) {

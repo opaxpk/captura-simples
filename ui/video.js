@@ -7,6 +7,7 @@ function pararStream(s) {
 }
 
 function pararVideo() {
+  if (typeof pararGravacao === 'function') pararGravacao('A imagem da placa parou');
   pararStream(streamVideo);
   streamVideo = null;
   el.video.srcObject = null;
@@ -143,10 +144,20 @@ function definirSemImagem(estado) {
   atualizarIndicador();
 }
 
-function verificarImagemPreta() {
-  if (!streamVideo || el.video.readyState < 2 || document.hidden) { segundosPretos = 0; return; }
+let aVerificarPreto = false;
+async function verificarImagemPreta() {
+  if (!streamVideo || el.video.readyState < 2 || document.hidden || aVerificarPreto) { segundosPretos = 0; return; }
+  aVerificarPreto = true;
   try {
-    ctxAmostra.drawImage(el.video, 0, 0, amostra.width, amostra.height);
+    // Lê a imagem pela faixa (ImageCapture) e reduz para 32×18, libertando tudo à mão.
+    // Desenhar o <video> no canvas (ou criar um VideoFrame dele) deixava presa uma cópia
+    // da imagem completa (~8 MB) a cada segundo.
+    const faixa = streamVideo.getVideoTracks()[0];
+    const inteira = await new ImageCapture(faixa).grabFrame();
+    const mini = await createImageBitmap(inteira, { resizeWidth: amostra.width, resizeHeight: amostra.height, resizeQuality: 'low' });
+    inteira.close();
+    ctxAmostra.drawImage(mini, 0, 0);
+    mini.close();
     const d = ctxAmostra.getImageData(0, 0, amostra.width, amostra.height).data;
     let maximo = 0;
     for (let i = 0; i < d.length; i += 4) {
@@ -158,6 +169,8 @@ function verificarImagemPreta() {
     definirSemImagem(segundosPretos >= SEGUNDOS_PARA_AVISAR);
   } catch {
     segundosPretos = 0;
+  } finally {
+    aVerificarPreto = false;
   }
 }
 

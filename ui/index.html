@@ -44,11 +44,17 @@
     </div>
 
     <div class="direita">
+      <button type="button" id="rec" class="rec" hidden title="Gravação em curso: abrir a janela Gravar">
+        <span class="rec-ponto" aria-hidden="true"></span><span>REC</span><span id="recTempo">00:00</span>
+      </button>
       <div id="sinal" class="sinal" data-estado="sem">
         <span class="luz" aria-hidden="true"></span>
         <span id="sinalTexto">Sem sinal</span>
         <span id="sinalExtra" class="extra"></span>
       </div>
+      <button type="button" id="btnGravar" class="icone" aria-label="Gravar" title="Gravar (R começa e para)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle class="miolo" cx="12" cy="12" r="4"/></svg>
+      </button>
       <button type="button" id="btnDefinicoes" class="icone" aria-label="Definições" title="Definições">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>
       </button>
@@ -193,6 +199,7 @@
       <div><dt><kbd>M</kbd></dt><dd>Silenciar</dd></div>
       <div><dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Volume</dd></div>
       <div><dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Atraso do som</dd></div>
+      <div><dt><kbd>R</kbd></dt><dd>Começar ou parar a gravação</dd></div>
       <div><dt><kbd>C</kbd></dt><dd>Corrigir cores</dd></div>
       <div><dt><kbd>H</kbd></dt><dd>Esconder a barra</dd></div>
       <div><dt><kbd>?</kbd></dt><dd>Esta ajuda</dd></div>
@@ -210,6 +217,8 @@
   <script src="audio.js"></script>
   <script src="imagem.js"></script>
   <script src="definicoes.js"></script>
+  <script src="mp4-muxer.js"></script>
+  <script src="gravacao.js"></script>
   <script src="atualizacoes.js"></script>
   <script src="arranque.js"></script>
 </body>

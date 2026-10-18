@@ -3,7 +3,7 @@
 
 // ---------- Controlos da barra ----------
 aoEscolherSegmento(el.segRes, (valor) => {
-  if (valor === def.res) return;
+  if (valor === def.res || bloqueadoPorGravacao()) return;
   def.res = valor;
   marcarSegmento(el.segRes, def.res);
   guardar();
@@ -11,7 +11,7 @@ aoEscolherSegmento(el.segRes, (valor) => {
 });
 
 aoEscolherSegmento(el.segFps, (valor) => {
-  if (Number(valor) === def.fps) return;
+  if (Number(valor) === def.fps || bloqueadoPorGravacao()) return;
   def.fps = Number(valor);
   marcarSegmento(el.segFps, def.fps);
   guardar();
@@ -20,6 +20,7 @@ aoEscolherSegmento(el.segFps, (valor) => {
 
 el.selVideo.addEventListener('change', async () => {
   el.selVideo.blur();
+  if (bloqueadoPorGravacao()) { el.selVideo.value = def.videoId; return; }
   const v = videoSelecionado();
   def.videoId = v ? v.deviceId : '';
   def.videoNome = v ? v.label : '';
@@ -41,6 +42,7 @@ el.selVideo.addEventListener('change', async () => {
 
 el.selAudio.addEventListener('change', () => {
   el.selAudio.blur();
+  if (bloqueadoPorGravacao()) { el.selAudio.value = def.audioId || 'none'; return; }
   const id = el.selAudio.value;
   const a = dispositivos.audio.find((d) => d.deviceId === id);
   def.audioId = id;
@@ -112,6 +114,7 @@ document.addEventListener('keydown', (e) => {
   if (tecla === 'm') { e.preventDefault(); alternarMute(); osdVolume(); return; }
   if (tecla === 'h') { e.preventDefault(); alternarBarra(); return; }
   if (tecla === 'c') { e.preventDefault(); alternarCorrecaoCores(); return; }
+  if (tecla === 'r' && gravador) { e.preventDefault(); alternarGravacao(); return; }
 
   // Nas listas e deslizadores as setas servem para escolher
   if (emLista || emDeslizador) return;
@@ -130,6 +133,7 @@ window.addEventListener('beforeunload', () => {
 // ---------- Início ----------
 ligarDefinicoes();
 ligarAtualizacoes();
+ligarGravacao();
 
 marcarSegmento(el.segRes, def.res);
 marcarSegmento(el.segFps, def.fps);

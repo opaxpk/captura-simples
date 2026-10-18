@@ -1,4 +1,6 @@
-- As listas de vídeo e de áudio abrem um menu com o tema escuro da app, em vez do menu branco do Windows.
-- No menu, a opção escolhida tem um visto e os nomes compridos da placa leem-se inteiros.
-- Dá para escolher com o teclado: setas, Enter, Esc ou as primeiras letras do nome.
-- Testado com o Windows a 125% e 150%.
+- Gravar: novo botão (ou tecla R) que abre a janela Gravar, à parte, para jogares a ver o jogo e a gravação ao mesmo tempo.
+- Grava em MP4 (H.264 e AAC), pronto para o DaVinci Resolve, o CapCut e o YouTube.
+- Usa o codificador da placa gráfica quando existe, por isso quase não pesa no processador. A janela Gravar mostra o tempo, o tamanho, o espaço livre e quanto processador a app gasta.
+- O ficheiro vai sendo escrito no disco: se algo falhar a meio, o que já foi gravado fica.
+- Escolhe a qualidade (Alta, Equilibrada ou Leve), se gravas o som e a pasta.
+- Corrige uma fuga de memória: a app ia ocupando cada vez mais memória com o tempo.

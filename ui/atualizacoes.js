@@ -94,6 +94,10 @@ async function procurarAtualizacoes(silencioso) {
 }
 
 async function instalarPequena() {
+  if (typeof grav !== 'undefined' && (grav.aGravar || grav.aGuardar || grav.aPreparar)) {
+    mostrarPainelAtualizacao('erro', 'Estás a gravar', 'Para a gravação antes de atualizar. A atualização fica à tua espera.');
+    return;
+  }
   const nova = resultadoAtualizacao && resultadoAtualizacao.nova;
   mostrarPainelAtualizacao('a-instalar', `A instalar a versão ${nova}…`, 'A imagem volta em poucos segundos.');
   try {
@@ -107,6 +111,10 @@ async function instalarPequena() {
 }
 
 async function instalarCompleta() {
+  if (typeof grav !== 'undefined' && (grav.aGravar || grav.aGuardar || grav.aPreparar)) {
+    mostrarPainelAtualizacao('erro', 'Estás a gravar', 'Para a gravação antes de atualizar. A atualização fica à tua espera.');
+    return;
+  }
   const nova = resultadoAtualizacao && resultadoAtualizacao.nova;
   mostrarPainelAtualizacao('a-instalar', `A descarregar a versão ${nova}…`, '0%', { progresso: 0 });
   try {
