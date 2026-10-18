@@ -31,6 +31,8 @@ const pastaCapturas = process.env.CAPTURA_CAPTURAS;
 function verificar(nome, ok, detalhe) {
   console.log(`${ok ? 'OK     ' : 'FALHOU '} ${nome}${detalhe !== undefined ? `  (${detalhe})` : ''}`);
   if (!ok) falhas.push(nome);
+  // No GitHub, cada falha aparece como anotação (o registo completo nem sempre se consegue ler)
+  if (!ok && process.env.GITHUB_ACTIONS) console.log(`::error::${nome}${detalhe !== undefined ? ` (${String(detalhe).slice(0, 300)})` : ''}`);
 }
 
 async function capturar(win, nome) {

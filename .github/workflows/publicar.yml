@@ -20,10 +20,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: sudo apt-get update && sudo apt-get install -y xvfb
+      - run: sudo apt-get update && sudo apt-get install -y xvfb ffmpeg
       - run: npm ci
       - name: Testar a app
-        run: xvfb-run -a npm test
+        run: xvfb-run -a -s "-screen 0 1600x1000x24" npm test
 
   publicar:
     needs: testar
