@@ -14,12 +14,23 @@ try {
   // A máquina do GitHub pode não ter som nenhum; carregar já prova que o módulo está bom
   console.log(`listar falhou (normal sem placa de som): ${e.message}`);
 }
-// Tentar captar o próprio processo: na máquina do GitHub pode não haver serviço de som
+// Tentar captar o próprio processo: na máquina do GitHub pode não haver serviço de som.
+// Confirma também que o tempo de cada pacote está no relógio QPC (o mesmo do Chromium e do
+// process.hrtime no Windows): a diferença para "agora" deve ser de poucos milissegundos.
+const pacotes = [];
 const id = m.capturar(process.pid, (dados, tempo, erro) => {
-  if (erro) console.log(`capturar: ${erro}`);
-  else console.log(`capturar: ${dados.length / 2} frames em ${tempo} µs`);
+  if (erro) { console.log(`capturar: ${erro}`); return; }
+  pacotes.push({ frames: dados.length / 2, tempo, agora: Number(process.hrtime.bigint() / 1000n) });
 });
 setTimeout(() => {
   m.parar(id);
+  if (pacotes.length) {
+    const p0 = pacotes[0];
+    const pn = pacotes[pacotes.length - 1];
+    const atraso = pacotes.map((p) => (p.agora - p.tempo) / 1000);
+    console.log(`capturar: ${pacotes.length} pacotes, ${pacotes.reduce((t, p) => t + p.frames, 0)} frames`);
+    console.log(`tempo do 1.º pacote ${(p0.tempo / 1e6).toFixed(3)} s, do último ${(pn.tempo / 1e6).toFixed(3)} s (avança ${((pn.tempo - p0.tempo) / 1000).toFixed(0)} ms)`);
+    console.log(`chegada menos tempo do pacote: mín ${Math.min(...atraso).toFixed(1)} ms, máx ${Math.max(...atraso).toFixed(1)} ms`);
+  }
   console.log('Módulo do som por programa: OK');
 }, 1500);
